@@ -30,30 +30,16 @@ movie-dw-project/
 │   ├── pipeline.py                   # ETL 主入口（可一键运行）
 │   └── etl_config.yaml               # ETL 配置文件
 │
-├── warehouse/                        # 三种数据仓库
-│   ├── relational/                   # openGauss
-│   │    ├── star_schema.pdf
-│   │    ├── ddl/
-│   │    │    ├── fact_reviews.sql
-│   │    │    ├── dim_movies.sql
-│   │    │    ├── dim_actors.sql
-│   │    │    └── index.sql
-│   │    └── scripts/
-│   │         └── deploy_opengauss.sh
-│   │
-│   ├── distributed/                  # Spark + Hive + HDFS
-│   │    ├── hive_tables/
-│   │    ├── spark_jobs/
-│   │    │    ├── movie_statistics.py
-│   │    │    └── lineage_analysis.py
-│   │    └── scripts/
-│   │         └── deploy_hive.sh
-│   │
-│   └── graph/                        # Neo4j Schema
-│        ├── node_definitions.cypher
-│        ├── relationships.cypher
-│        └── scripts/
-│             └── deploy_neo4j.sh
+├── warehouse/docker/
+|   ├── docker-compose.yml
+|   ├── opengauss/
+|   │   └── init.sql
+|   ├── hive/
+|   │   └── init.hql
+|   ├── neo4j/
+|   │   ├── init.cypher
+|   │   └── import/   # 可放 CSV 导入文件（如需离线导入）
+|   └── init_all.sh
 │
 ├── backend/                          # 数据应用接口（FastAPI）
 │   ├── main.py

@@ -13,6 +13,7 @@
 * **下载参考网站**: 
   openGauss: `https://opengauss.org/zh/download/`
   Hive: `https://www.apache.org/dyn/closer.cgi/hive/`
+  Neo4j: `https://neo4j.com/docs/operations-manual/current/installation/linux/`
 
 * **Neo4j免费实例连接**
   ID: `cce74607`

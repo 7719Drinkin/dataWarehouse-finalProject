@@ -2,33 +2,6 @@
 
 > **文件说明**：本文档同时包含设计说明、E-R / 星型模型说明、关系型DDL、Hive 表定义、Spark 作业模板、Neo4j Cypher 脚本，以及 openGauss / Hive 的部署脚本。它与仓库目录 `warehouse/` 的文件结构对应：
 
-```
-warehouse/
-├── relational/
-│   ├── star_schema.pdf
-│   ├── ddl/
-│   │   ├── fact_reviews.sql
-│   │   ├── dim_movies.sql
-│   │   ├── dim_actors.sql
-│   │   └── index.sql
-│   └── scripts/
-│        └── deploy_opengauss.sh
-│
-├── distributed/
-│   ├── hive_tables/
-│   │    └── create_movie_reviews.hql
-│   ├── spark_jobs/
-│   │    ├── movie_statistics.py
-│   │    └── lineage_analysis.py
-│   └── scripts/
-│        └── deploy_hive.sh
-│
-└── graph/
-     ├── node_definitions.cypher
-     ├── relationships.cypher
-     └── scripts/
-          └── deploy_neo4j.sh
-```
 
 ---
 
@@ -276,6 +249,7 @@ SELECT movie_id, AVG(score) as avg_score FROM fact_reviews GROUP BY movie_id ORD
 
 ---
 
+
 ## 7. 查询和统计程序（示例）
 
 - `warehouse/distributed/spark_jobs/movie_statistics.py`：计算每年上映电影数、每电影平均评分、每导演电影数等。
@@ -314,7 +288,8 @@ spark.stop()
 
 ---
 
-## 8. 部署脚本
+
+## 8. 部署脚本(具体要参考docker_deploy的文件如何实现)
 
 将脚本放在 `warehouse/.../scripts/`。
 
