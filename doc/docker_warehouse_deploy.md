@@ -68,15 +68,13 @@ warehouse/docker/
 > 说明：这个 compose 以单机开发/测试为目标，整合 openGauss、Postgres（Hive Metastore）、Hadoop (namenode/datanode)、HiveServer2、Spark（master/worker）、Neo4j。注意：真实生产集群需要分布式多节点，此处做单机 pseudo-distributed。启动稍慢，资源占用较高。
 
 ```yaml
-version: '3.8'
-
 services:
   # -- openGauss 关系型数据库 --
   opengauss:
     image: opengauss/opengauss-server:latest
     container_name: opengauss
     environment:
-      - GS_PASSWORD=og_password  # 请在 .env 中设实际密码
+      - GS_PASSWORD=og_password  # 请在 .env 中设置实际密码
     ports:
       - "5432:5432"
     volumes:
@@ -87,24 +85,26 @@ services:
       interval: 10s
       retries: 10
 
-  # -- Hive + HDFS (pseudo-distributed) + Spark 作业环境 --
+  # -- Hadoop HDFS (伪分布式) + Hive + Spark 作业环境 --
   namenode:
-    image: bde2020/hadoop-namenode:2.0.0-hadoop3.2.1-java8
+    image: s1mplecc/spark-hadoop:3.3.4
     container_name: namenode
     environment:
       - CLUSTER_NAME=single-node
+      - HDFS_NAMENODE=true
     volumes:
       - ./hdfs/namenode:/hadoop/dfs/name
     ports:
-      - "9870:9870"
+      - "9870:9870"   # HDFS Web UI
     networks:
       - bigdata
 
   datanode:
-    image: bde2020/hadoop-datanode:2.0.0-hadoop3.2.1-java8
+    image: s1mplecc/spark-hadoop:3.3.4
     container_name: datanode
     environment:
       - CLUSTER_NAME=single-node
+      - HDFS_DATANODE=true
       - CORE_CONF_fs_defaultFS=hdfs://namenode:9000
     volumes:
       - ./hdfs/datanode:/hadoop/dfs/data
@@ -128,7 +128,7 @@ services:
       - bigdata
 
   spark-master:
-    image: bitnami/spark:3
+    image: bitnami/spark:3.5.3
     container_name: spark-master
     environment:
       - SPARK_MODE=master
@@ -139,7 +139,7 @@ services:
       - bigdata
 
   spark-worker:
-    image: bitnami/spark:3
+    image: bitnami/spark:3.5.3
     container_name: spark-worker
     environment:
       - SPARK_MODE=worker
@@ -156,8 +156,8 @@ services:
     environment:
       - NEO4J_AUTH=neo4j/neo4j_password  # 请在 .env 设置实际密码
     ports:
-      - "7474:7474"
-      - "7687:7687"
+      - "7474:7474"  # HTTP Web UI
+      - "7687:7687"  # Bolt
     volumes:
       - ./neo4j/data:/data
       - ./neo4j/import:/var/lib/neo4j/import
@@ -168,6 +168,7 @@ services:
 networks:
   bigdata:
     driver: bridge
+
 ```
 
 ---
