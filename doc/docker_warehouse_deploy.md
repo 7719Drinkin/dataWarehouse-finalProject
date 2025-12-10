@@ -69,13 +69,14 @@ warehouse/docker/
 
 ```yaml
 version: '3.8'
+
 services:
-  # -------- openGauss (关系型) --------
+  # -- openGauss 关系型数据库 --
   opengauss:
-    image: containers.opengauss.org/opengauss:latest
+    image: opengauss/opengauss-server:latest
     container_name: opengauss
     environment:
-      - GS_PASSWORD=og_password
+      - GS_PASSWORD=og_password  # 请在 .env 中设实际密码
     ports:
       - "5432:5432"
     volumes:
@@ -86,22 +87,7 @@ services:
       interval: 10s
       retries: 10
 
-  # -------- Postgres for Hive Metastore --------
-  hive-metastore-postgres:
-    image: postgres:13
-    container_name: hive-metastore-postgres
-    environment:
-      - POSTGRES_PASSWORD=hive_pwd
-    ports:
-      - "5432:5433" # 注意端口冲突：host 5432 已被 opengauss 占用，暴露到宿主 5433
-    volumes:
-      - ./hive/postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres || exit 1"]
-      interval: 10s
-      retries: 5
-
-  # -------- Hadoop NameNode (simple) --------
+  # -- Hive + HDFS (pseudo-distributed) + Spark 作业环境 --
   namenode:
     image: bde2020/hadoop-namenode:2.0.0-hadoop3.2.1-java8
     container_name: namenode
@@ -112,7 +98,7 @@ services:
     ports:
       - "9870:9870"
     networks:
-      - hadoop
+      - bigdata
 
   datanode:
     image: bde2020/hadoop-datanode:2.0.0-hadoop3.2.1-java8
@@ -125,27 +111,22 @@ services:
     depends_on:
       - namenode
     networks:
-      - hadoop
+      - bigdata
 
-  # -------- Hive + HiveServer2 (uses hive image with metastore) --------
   hive-server:
-    image: bde2020/hive:2.3.2-postgresql-metastore
+    image: apache/hive:4.0.0
     container_name: hive-server
     environment:
-      - HIVE_METASTORE_USER=postgres
-      - HIVE_METASTORE_PASSWORD=hive_pwd
-      - HADOOP_NAMENODE=namenode
+      - SERVICE_NAME=hiveserver2
     ports:
       - "10000:10000"
     volumes:
       - ./hive/init.hql:/opt/hive-init/init.hql:ro
     depends_on:
-      - hive-metastore-postgres
       - namenode
     networks:
-      - hadoop
+      - bigdata
 
-  # -------- Spark (master & worker) --------
   spark-master:
     image: bitnami/spark:3
     container_name: spark-master
@@ -155,7 +136,7 @@ services:
       - "7077:7077"
       - "8080:8080"
     networks:
-      - hadoop
+      - bigdata
 
   spark-worker:
     image: bitnami/spark:3
@@ -166,37 +147,28 @@ services:
     depends_on:
       - spark-master
     networks:
-      - hadoop
+      - bigdata
 
-  # -------- Neo4j (图数据库) --------
+  # -- Neo4j 图数据库 --
   neo4j:
-    image: neo4j:5
+    image: neo4j:latest
     container_name: neo4j
     environment:
-      - NEO4J_AUTH=neo4j/neo4j_password
+      - NEO4J_AUTH=neo4j/neo4j_password  # 请在 .env 设置实际密码
     ports:
       - "7474:7474"
       - "7687:7687"
     volumes:
       - ./neo4j/data:/data
       - ./neo4j/import:/var/lib/neo4j/import
-      - ./neo4j/plugins:/plugins
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:7474/" ]
-      interval: 10s
-      retries: 10
+      - ./neo4j/logs:/logs
     networks:
-      - hadoop
+      - bigdata
 
 networks:
-  hadoop:
+  bigdata:
     driver: bridge
 ```
-
-> 说明与注意事项：
-> - opengauss 容器使用 `containers.opengauss.org/opengauss:latest` 镜像。若你的环境无法拉取该镜像，可改为 `enmotech/opengauss` 或其他可用镜像。
-> - Postgres 暂用 host 5433 端口以避免与 opengauss 冲突。
-> - Hive 镜像 `bde2020/hive` 是常用于单机开发的镜像，生产请参照官方。它会在容器内部尝试连接 Namenode 与 metastore。
 
 ---
 
@@ -334,45 +306,81 @@ CREATE CONSTRAINT IF NOT EXISTS FOR (u:User) REQUIRE u.id IS UNIQUE;
 #!/usr/bin/env bash
 set -euo pipefail
 
+# -------------------------------
+# detect docker compose
+# -------------------------------
+if command -v docker compose >/dev/null 2>&1; then
+    DC="docker compose"
+elif command -v docker-compose >/dev/null 2>&1; then
+    DC="docker-compose"
+else
+    echo "❌ docker compose not installed"
+    exit 1
+fi
+
 BASE_DIR=$(cd "$(dirname "$0")" && pwd)
 cd $BASE_DIR
 
-echo "Starting docker compose..."
-docker compose up -d
+echo "▶ Starting docker compose..."
+$DC up -d
 
-# 等待 opengauss 就绪 (psql available inside container)
-echo "Waiting for opengauss to be ready..."
-for i in {1..30}; do
-  if docker exec opengauss bash -c "pg_isready -U gaussdb" >/dev/null 2>&1; then
-    echo "opengauss ready"
+# -------------------------------
+# Wait for openGauss
+# -------------------------------
+echo "▶ Waiting for openGauss to be ready..."
+for i in {1..40}; do
+  if docker exec opengauss bash -c "gsql -d postgres -U omm -c 'SELECT 1;'" >/dev/null 2>&1; then
+    echo "✔ openGauss ready"
     break
   fi
+  echo "  ...waiting openGauss ($i/40)"
   sleep 5
 done
 
-# 执行 openGauss init.sql（容器内执行）
 if docker exec opengauss bash -c "test -f /docker-entrypoint-initdb.d/init.sql"; then
-  echo "Applying openGauss init.sql inside container..."
-  docker exec -i opengauss bash -c "psql -U gaussdb -d postgres -f /docker-entrypoint-initdb.d/init.sql"
+  echo "▶ Applying openGauss init.sql ..."
+  docker exec -i opengauss gsql -d postgres -U omm -f /docker-entrypoint-initdb.d/init.sql
+  echo "✔ openGauss init.sql applied"
 fi
 
-# 初始化 Hive: 将 init.hql COPY 到容器并执行（hive-server 容器内）
-echo "Applying Hive init.hql..."
+# -------------------------------
+# Wait for HiveServer2
+# -------------------------------
+echo "▶ Waiting for HiveServer2..."
+for i in {1..40}; do
+  if docker exec hive-server bash -c "/opt/hive/bin/beeline -u 'jdbc:hive2://localhost:10000' -e 'show databases;'" >/dev/null 2>&1; then
+    echo "✔ Hive ready"
+    break
+  fi
+  echo "  ...waiting Hive ($i/40)"
+  sleep 5
+done
+
+echo "▶ Applying Hive init.hql..."
 docker cp hive/init.hql hive-server:/opt/hive-init/init.hql || true
-# Use beeline inside container to run the hql
-docker exec -i hive-server bash -c "/opt/hive/bin/beeline -u 'jdbc:hive2://localhost:10000' -n postgres -p hive_pwd -f /opt/hive-init/init.hql" || true
+docker exec hive-server bash -c "/opt/hive/bin/beeline -u 'jdbc:hive2://localhost:10000' -f /opt/hive-init/init.hql" || true
+echo "✔ Hive init.hql applied"
 
-# 初始化 Neo4j: 将 init.cypher 拷贝并通过 cypher-shell 执行
-echo "Applying Neo4j init.cypher..."
+# -------------------------------
+# Wait for Neo4j
+# -------------------------------
+echo "▶ Waiting for Neo4j..."
+for i in {1..30}; do
+  if docker exec neo4j bash -c "curl -s http://localhost:7474/" >/dev/null 2>&1; then
+    echo "✔ Neo4j ready"
+    break
+  fi
+  echo "  ...waiting Neo4j ($i/30)"
+  sleep 3
+done
+
+echo "▶ Applying Neo4j init.cypher..."
 docker cp neo4j/init.cypher neo4j:/init.cypher || true
-# cypher-shell 可能需要密码 neo4j/neo4j_password
-sleep 5
-docker exec -i neo4j bash -c "bin/cypher-shell -u neo4j -p neo4j_password -f /init.cypher" || true
+docker exec neo4j bash -c "cat /init.cypher | /var/lib/neo4j/bin/cypher-shell -u neo4j -p neo4j_password" || true
+echo "✔ Neo4j init.cypher applied"
 
-echo "Initialization complete."
+echo "🎉 ALL INITIALIZATION COMPLETE"
 ```
-
-> 注意：上述脚本中的 `psql`, `beeline`, `cypher-shell` 在相应镜像中可用；若某镜像没有这些工具，请使用对应镜像工具或在容器中安装/拷贝这些可执行文件。
 
 ---
 
@@ -412,15 +420,35 @@ docker compose ps
 示例 Python 连接 openGauss（psycopg2）:
 
 ```python
-import psycopg2
-conn = psycopg2.connect(host='SERVER_IP', port=5432, dbname='movie_dw', user='gaussdb', password='og_password')
+from pygs_connector import connect
+
+conn = connect(
+    host="SERVER_IP",
+    port=5432,
+    user="omm",
+    password="og_password",
+    database="movie_dw"
+)
+cursor = conn.cursor()
+cursor.execute("SELECT COUNT(*) FROM fact_reviews;")
+print(cursor.fetchone())
 ```
 
 示例 PyHive 连接 Hive:
 
 ```python
 from pyhive import hive
-conn = hive.Connection(host='SERVER_IP', port=10000, username='postgres', password='hive_pwd')
+
+conn = hive.Connection(
+    host="SERVER_IP",
+    port=10000,
+    username="hive",
+    database="default"
+)
+cursor = conn.cursor()
+cursor.execute("SHOW DATABASES")
+print(cursor.fetchall())
+
 ```
 
 示例 Neo4j Bolt:
