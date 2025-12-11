@@ -15,12 +15,15 @@ fi
 BASE_DIR=$(cd "$(dirname "$0")" && pwd)
 cd "$BASE_DIR"
 
-echo "▶ Building Hadoop+Spark image (using local ARM64 OpenJDK)..."
+echo "▶ Building Hadoop+Spark image..."
 docker build -t hdfs-spark:latest .
 
 echo "▶ Starting all containers..."
 $DC up -d
 
+######################################
+# OpenGauss initialization
+######################################
 echo "▶ Waiting for OpenGauss..."
 for i in {1..40}; do
   if docker exec opengauss bash -c "gsql -d postgres -U omm -c 'SELECT 1;'" >/dev/null 2>&1; then
@@ -31,12 +34,14 @@ for i in {1..40}; do
   sleep 5
 done
 
-if docker exec opengauss bash -c "test -f /docker-entrypoint-initdb.d/init.sql"; then
-  echo "▶ Applying OpenGauss init.sql..."
-  docker exec -i opengauss gsql -d postgres -U omm -f /docker-entrypoint-initdb.d/init.sql
-  echo "✔ OpenGauss init.sql applied"
-fi
+echo "▶ Applying OpenGauss init.sql..."
+docker cp "$BASE_DIR/opengauss/init.sql" opengauss:/init.sql
+docker exec opengauss bash -c "gsql -d postgres -U omm -f /init.sql"
+echo "✔ OpenGauss init.sql applied"
 
+######################################
+# Hive initialization
+######################################
 echo "▶ Waiting for HiveServer2..."
 for i in {1..40}; do
   if docker exec hive-server bash -c "/opt/hive/bin/beeline -u 'jdbc:hive2://localhost:10000' -e 'show databases;'" >/dev/null 2>&1; then
@@ -48,10 +53,14 @@ for i in {1..40}; do
 done
 
 echo "▶ Applying Hive init.hql..."
-docker cp hive/init.hql hive-server:/opt/hive-init/init.hql
+docker exec hive-server mkdir -p /opt/hive-init
+docker cp "$BASE_DIR/hive/init.hql" hive-server:/opt/hive-init/init.hql
 docker exec hive-server bash -c "/opt/hive/bin/beeline -u 'jdbc:hive2://localhost:10000' -f /opt/hive-init/init.hql"
 echo "✔ Hive init.hql applied"
 
+######################################
+# Neo4j initialization
+######################################
 echo "▶ Waiting for Neo4j..."
 for i in {1..30}; do
   if docker exec neo4j bash -c "curl -s http://localhost:7474/" >/dev/null 2>&1; then
@@ -63,7 +72,7 @@ for i in {1..30}; do
 done
 
 echo "▶ Applying Neo4j init.cypher..."
-docker cp neo4j/init.cypher neo4j:/init.cypher
+docker cp "$BASE_DIR/neo4j/init.cypher" neo4j:/init.cypher
 docker exec neo4j bash -c "cat /init.cypher | /var/lib/neo4j/bin/cypher-shell -u neo4j -p neo4j_password"
 echo "✔ Neo4j init.cypher applied"
 

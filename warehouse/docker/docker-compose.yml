@@ -29,11 +29,12 @@ services:
       - "5432:5432"
     volumes:
       - ./opengauss/data:/var/lib/opengauss
-      - ./opengauss/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     healthcheck:
-      test: ["CMD", "pg_isready", "-U", "gaussdb"]
+      test: ["CMD-SHELL", "gsql -d postgres -U omm -c 'select 1;' || exit 1"]
       interval: 10s
       retries: 10
+    networks:
+      - bigdata
 
   hive-server:
     image: apache/hive:4.0.0
@@ -42,8 +43,6 @@ services:
       - SERVICE_NAME=hiveserver2
     ports:
       - "10000:10000"
-    volumes:
-      - ./hive/init.hql:/opt/hive-init/init.hql:ro
     depends_on:
       - hadoop-spark
     networks:
