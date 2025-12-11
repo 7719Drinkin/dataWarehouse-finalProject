@@ -1,10 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
-set -x  # 输出调试信息
+set -x
 
-# -------------------------------
 # Detect docker compose
-# -------------------------------
 if command -v docker compose >/dev/null 2>&1; then
     DC="docker compose"
 elif command -v docker-compose >/dev/null 2>&1; then
@@ -17,21 +15,12 @@ fi
 BASE_DIR=$(cd "$(dirname "$0")" && pwd)
 cd "$BASE_DIR"
 
-# -------------------------------
-# Build Hadoop+Spark image
-# -------------------------------
-echo "▶ Building Hadoop+Spark image..."
+echo "▶ Building Hadoop+Spark image (using local ARM64 OpenJDK)..."
 docker build -t hdfs-spark:latest .
 
-# -------------------------------
-# Start all services
-# -------------------------------
 echo "▶ Starting all containers..."
 $DC up -d
 
-# -------------------------------
-# Wait for OpenGauss
-# -------------------------------
 echo "▶ Waiting for OpenGauss..."
 for i in {1..40}; do
   if docker exec opengauss bash -c "gsql -d postgres -U omm -c 'SELECT 1;'" >/dev/null 2>&1; then
@@ -48,9 +37,6 @@ if docker exec opengauss bash -c "test -f /docker-entrypoint-initdb.d/init.sql";
   echo "✔ OpenGauss init.sql applied"
 fi
 
-# -------------------------------
-# Wait for HiveServer2
-# -------------------------------
 echo "▶ Waiting for HiveServer2..."
 for i in {1..40}; do
   if docker exec hive-server bash -c "/opt/hive/bin/beeline -u 'jdbc:hive2://localhost:10000' -e 'show databases;'" >/dev/null 2>&1; then
@@ -66,9 +52,6 @@ docker cp hive/init.hql hive-server:/opt/hive-init/init.hql
 docker exec hive-server bash -c "/opt/hive/bin/beeline -u 'jdbc:hive2://localhost:10000' -f /opt/hive-init/init.hql"
 echo "✔ Hive init.hql applied"
 
-# -------------------------------
-# Wait for Neo4j
-# -------------------------------
 echo "▶ Waiting for Neo4j..."
 for i in {1..30}; do
   if docker exec neo4j bash -c "curl -s http://localhost:7474/" >/dev/null 2>&1; then

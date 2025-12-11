@@ -14,13 +14,12 @@ services:
       - ./hdfs/namenode:/hadoop/dfs/name
       - ./hdfs/datanode:/hadoop/dfs/data
     ports:
-      - "9870:9870"  # HDFS NameNode UI
-      - "8080:8080"  # Spark Master UI
-      - "7077:7077"  # Spark Master port
+      - "9870:9870"
+      - "8080:8080"
+      - "7077:7077"
     networks:
       - bigdata
 
-  # 数据库部分
   opengauss:
     image: opengauss/opengauss-server:latest
     container_name: opengauss
