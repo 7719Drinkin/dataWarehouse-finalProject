@@ -26,7 +26,7 @@ $DC up -d
 ######################################
 echo "▶ Waiting for OpenGauss..."
 for i in {1..40}; do
-  if docker exec opengauss bash -c "gsql -d postgres -U omm -c 'SELECT 1;'" >/dev/null 2>&1; then
+  if docker exec -u omm opengauss bash -c "export LD_LIBRARY_PATH=/usr/local/opengauss/lib:\$LD_LIBRARY_PATH && /usr/local/opengauss/bin/gsql -d postgres -U omm -c 'SELECT 1;'" >/dev/null 2>&1; then
     echo "✔ OpenGauss ready"
     break
   fi
@@ -36,7 +36,7 @@ done
 
 echo "▶ Applying OpenGauss init.sql..."
 docker cp "$BASE_DIR/opengauss/init.sql" opengauss:/init.sql
-docker exec opengauss bash -c "/usr/local/opengauss/bin/gsql -d postgres -U omm -f /init.sql"
+docker exec -u omm opengauss bash -c "export LD_LIBRARY_PATH=/usr/local/opengauss/lib:\$LD_LIBRARY_PATH && /usr/local/opengauss/bin/gsql -d postgres -U omm -f /init.sql"
 echo "✔ OpenGauss init.sql applied"
 
 ######################################
