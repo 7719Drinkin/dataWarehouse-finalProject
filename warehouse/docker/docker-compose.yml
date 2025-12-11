@@ -40,13 +40,10 @@ services:
     container_name: hive-server
     environment:
       - SERVICE_NAME=hiveserver2
-      - HIVE_HOME=/opt/hive
     ports:
       - "10000:10000"
     volumes:
-      - ./hive/init.hql:/tmp/hive-init/init.hql:ro
-      - ./hive/warehouse:/warehouse
-      - ./hive/hive-home:/home/hive
+      - ./hive/init.hql:/opt/hive-init/init.hql:ro   # 直接挂载初始化文件
     depends_on:
       - hadoop-spark
     networks:
