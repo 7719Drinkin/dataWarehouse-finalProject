@@ -43,12 +43,12 @@ services:
     ports:
       - "10000:10000"
     volumes:
-      - ./hive/init.hql:/opt/hive-init/init.hql:ro   # 直接挂载初始化文件
+      - ./hdfs/warehouse:/warehouse   # 挂载宿主机可写目录
+      - ./hive/init.hql:/opt/hive-init/init.hql:ro
     depends_on:
       - hadoop-spark
     networks:
       - bigdata
-
   neo4j:
     image: neo4j:latest
     container_name: neo4j
