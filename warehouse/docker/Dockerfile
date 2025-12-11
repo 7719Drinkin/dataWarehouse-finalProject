@@ -6,8 +6,10 @@ ENV HADOOP_HOME=/opt/hadoop
 ENV SPARK_HOME=/opt/spark
 ENV PATH=$PATH:$HADOOP_HOME/bin:$HADOOP_HOME/sbin:$SPARK_HOME/bin:$SPARK_HOME/sbin
 
-# 安装 Hadoop/Spark 所需依赖
-RUN apt-get update && \
+# 使用华为云 Debian 源
+RUN sed -i 's@deb.debian.org@repo.huaweicloud.com@g' /etc/apt/sources.list && \
+    sed -i 's@security.debian.org@repo.huaweicloud.com@g' /etc/apt/sources.list && \
+    apt-get update && \
     apt-get install -y curl ssh rsync procps net-tools && \
     rm -rf /var/lib/apt/lists/*
 
