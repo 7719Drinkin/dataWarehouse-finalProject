@@ -24,7 +24,7 @@ services:
     image: opengauss/opengauss-server:latest
     container_name: opengauss
     environment:
-      - GS_PASSWORD=og_password
+      - GS_PASSWORD=GaussDB@2025
     ports:
       - "5432:5432"
     volumes:
