@@ -68,13 +68,44 @@ warehouse/docker/
 > 说明：这个 compose 以单机开发/测试为目标，整合 openGauss、Postgres（Hive Metastore）、Hadoop (namenode/datanode)、HiveServer2、Spark（master/worker）、Neo4j。注意：真实生产集群需要分布式多节点，此处做单机 pseudo-distributed。启动稍慢，资源占用较高。
 
 ```yaml
+version: '3.9'
+
 services:
-  # -- openGauss 关系型数据库 --
+  hadoop-spark:
+    build: .
+    container_name: hadoop-spark
+    environment:
+      - CLUSTER_NAME=single-node
+      - HDFS_NAMENODE=true
+      - HDFS_DATANODE=true
+      - SPARK_MODE=master
+    volumes:
+      - ./hdfs/namenode:/hadoop/dfs/name
+      - ./hdfs/datanode:/hadoop/dfs/data
+    ports:
+      - "9870:9870"
+      - "8080:8080"
+      - "7077:7077"
+    networks:
+      - bigdata
+
+  spark-worker:
+    build: .
+    container_name: spark-worker
+    environment:
+      - SPARK_MODE=worker
+      - SPARK_MASTER_URL=spark://hadoop-spark:7077
+    depends_on:
+      - hadoop-spark
+    networks:
+      - bigdata
+
+  # 数据库部分不变
   opengauss:
     image: opengauss/opengauss-server:latest
     container_name: opengauss
     environment:
-      - GS_PASSWORD=og_password  # 请在 .env 中设置实际密码
+      - GS_PASSWORD=og_password
     ports:
       - "5432:5432"
     volumes:
@@ -84,34 +115,6 @@ services:
       test: ["CMD", "pg_isready", "-U", "gaussdb"]
       interval: 10s
       retries: 10
-
-  # -- Hadoop HDFS (伪分布式) + Hive + Spark 作业环境 --
-  namenode:
-    image: s1mplecc/spark-hadoop:3.3.4
-    container_name: namenode
-    environment:
-      - CLUSTER_NAME=single-node
-      - HDFS_NAMENODE=true
-    volumes:
-      - ./hdfs/namenode:/hadoop/dfs/name
-    ports:
-      - "9870:9870"   # HDFS Web UI
-    networks:
-      - bigdata
-
-  datanode:
-    image: s1mplecc/spark-hadoop:3.3.4
-    container_name: datanode
-    environment:
-      - CLUSTER_NAME=single-node
-      - HDFS_DATANODE=true
-      - CORE_CONF_fs_defaultFS=hdfs://namenode:9000
-    volumes:
-      - ./hdfs/datanode:/hadoop/dfs/data
-    depends_on:
-      - namenode
-    networks:
-      - bigdata
 
   hive-server:
     image: apache/hive:4.0.0
@@ -123,41 +126,18 @@ services:
     volumes:
       - ./hive/init.hql:/opt/hive-init/init.hql:ro
     depends_on:
-      - namenode
+      - hadoop-spark
     networks:
       - bigdata
 
-  spark-master:
-    image: bitnami/spark:3.5.3
-    container_name: spark-master
-    environment:
-      - SPARK_MODE=master
-    ports:
-      - "7077:7077"
-      - "8080:8080"
-    networks:
-      - bigdata
-
-  spark-worker:
-    image: bitnami/spark:3.5.3
-    container_name: spark-worker
-    environment:
-      - SPARK_MODE=worker
-      - SPARK_MASTER_URL=spark://spark-master:7077
-    depends_on:
-      - spark-master
-    networks:
-      - bigdata
-
-  # -- Neo4j 图数据库 --
   neo4j:
     image: neo4j:latest
     container_name: neo4j
     environment:
-      - NEO4J_AUTH=neo4j/neo4j_password  # 请在 .env 设置实际密码
+      - NEO4J_AUTH=neo4j/neo4j_password
     ports:
-      - "7474:7474"  # HTTP Web UI
-      - "7687:7687"  # Bolt
+      - "7474:7474"
+      - "7687:7687"
     volumes:
       - ./neo4j/data:/data
       - ./neo4j/import:/var/lib/neo4j/import
@@ -168,6 +148,7 @@ services:
 networks:
   bigdata:
     driver: bridge
+
 
 ```
 

@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
+set -x  # 输出调试信息
 
 # -------------------------------
-# detect docker compose
+# Detect docker compose
 # -------------------------------
 if command -v docker compose >/dev/null 2>&1; then
     DC="docker compose"
@@ -14,28 +15,37 @@ else
 fi
 
 BASE_DIR=$(cd "$(dirname "$0")" && pwd)
-cd $BASE_DIR
+cd "$BASE_DIR"
 
-echo "▶ Starting docker compose..."
+# -------------------------------
+# Build Hadoop+Spark image
+# -------------------------------
+echo "▶ Building Hadoop+Spark image..."
+docker build -t hdfs-spark:latest .
+
+# -------------------------------
+# Start all services
+# -------------------------------
+echo "▶ Starting all containers..."
 $DC up -d
 
 # -------------------------------
-# Wait for openGauss
+# Wait for OpenGauss
 # -------------------------------
-echo "▶ Waiting for openGauss to be ready..."
+echo "▶ Waiting for OpenGauss..."
 for i in {1..40}; do
   if docker exec opengauss bash -c "gsql -d postgres -U omm -c 'SELECT 1;'" >/dev/null 2>&1; then
-    echo "✔ openGauss ready"
+    echo "✔ OpenGauss ready"
     break
   fi
-  echo "  ...waiting openGauss ($i/40)"
+  echo "  ...waiting OpenGauss ($i/40)"
   sleep 5
 done
 
 if docker exec opengauss bash -c "test -f /docker-entrypoint-initdb.d/init.sql"; then
-  echo "▶ Applying openGauss init.sql ..."
+  echo "▶ Applying OpenGauss init.sql..."
   docker exec -i opengauss gsql -d postgres -U omm -f /docker-entrypoint-initdb.d/init.sql
-  echo "✔ openGauss init.sql applied"
+  echo "✔ OpenGauss init.sql applied"
 fi
 
 # -------------------------------
@@ -52,8 +62,8 @@ for i in {1..40}; do
 done
 
 echo "▶ Applying Hive init.hql..."
-docker cp hive/init.hql hive-server:/opt/hive-init/init.hql || true
-docker exec hive-server bash -c "/opt/hive/bin/beeline -u 'jdbc:hive2://localhost:10000' -f /opt/hive-init/init.hql" || true
+docker cp hive/init.hql hive-server:/opt/hive-init/init.hql
+docker exec hive-server bash -c "/opt/hive/bin/beeline -u 'jdbc:hive2://localhost:10000' -f /opt/hive-init/init.hql"
 echo "✔ Hive init.hql applied"
 
 # -------------------------------
@@ -70,8 +80,8 @@ for i in {1..30}; do
 done
 
 echo "▶ Applying Neo4j init.cypher..."
-docker cp neo4j/init.cypher neo4j:/init.cypher || true
-docker exec neo4j bash -c "cat /init.cypher | /var/lib/neo4j/bin/cypher-shell -u neo4j -p neo4j_password" || true
+docker cp neo4j/init.cypher neo4j:/init.cypher
+docker exec neo4j bash -c "cat /init.cypher | /var/lib/neo4j/bin/cypher-shell -u neo4j -p neo4j_password"
 echo "✔ Neo4j init.cypher applied"
 
 echo "🎉 ALL INITIALIZATION COMPLETE"
