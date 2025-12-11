@@ -15,15 +15,9 @@ fi
 BASE_DIR=$(cd "$(dirname "$0")" && pwd)
 cd "$BASE_DIR"
 
-######################################
-# Build Hadoop+Spark image
-######################################
 echo "▶ Building Hadoop+Spark image..."
 docker build -t hdfs-spark:latest .
 
-######################################
-# Start all containers
-######################################
 echo "▶ Starting all containers..."
 $DC up -d
 
@@ -32,7 +26,7 @@ $DC up -d
 ######################################
 echo "▶ Waiting for OpenGauss..."
 for i in {1..40}; do
-  if docker exec -u omm opengauss bash -c "export LD_LIBRARY_PATH=/usr/local/opengauss/lib:\$LD_LIBRARY_PATH && /usr/local/opengauss/bin/gsql -d postgres -U omm -c 'SELECT 1;'" >/dev/null 2>&1; then
+  if docker exec opengauss bash -c "gsql -d postgres -U omm -c 'SELECT 1;'" >/dev/null 2>&1; then
     echo "✔ OpenGauss ready"
     break
   fi
@@ -42,7 +36,7 @@ done
 
 echo "▶ Applying OpenGauss init.sql..."
 docker cp "$BASE_DIR/opengauss/init.sql" opengauss:/init.sql
-docker exec -u omm opengauss bash -c "export LD_LIBRARY_PATH=/usr/local/opengauss/lib:\$LD_LIBRARY_PATH && /usr/local/opengauss/bin/gsql -d postgres -U omm -f /init.sql"
+docker exec opengauss bash -c "/usr/local/opengauss/bin/gsql -d postgres -U omm -f /init.sql"
 echo "✔ OpenGauss init.sql applied"
 
 ######################################
@@ -59,9 +53,7 @@ for i in {1..40}; do
 done
 
 echo "▶ Applying Hive init.hql..."
-docker exec hive-server mkdir -p /opt/hive-init
-docker cp "$BASE_DIR/hive/init.hql" hive-server:/opt/hive-init/init.hql
-docker exec hive-server bash -c "/opt/hive/bin/beeline -u 'jdbc:hive2://localhost:10000' -f /opt/hive-init/init.hql"
+docker exec hive-server bash -c "/opt/hive/bin/beeline -u 'jdbc:hive2://localhost:10000' -f /tmp/hive-init/init.hql"
 echo "✔ Hive init.hql applied"
 
 ######################################
