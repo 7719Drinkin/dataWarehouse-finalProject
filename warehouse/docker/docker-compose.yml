@@ -17,7 +17,7 @@ services:
 
   # -- Hadoop HDFS (伪分布式) + Hive + Spark 作业环境 --
   namenode:
-    image: s1mplecc/spark-hadoop:3.3.4
+    image: registry.cn-hangzhou.aliyuncs.com/s1mplecc/spark-hadoop:3.3.4
     container_name: namenode
     environment:
       - CLUSTER_NAME=single-node
@@ -30,7 +30,7 @@ services:
       - bigdata
 
   datanode:
-    image: s1mplecc/spark-hadoop:3.3.4
+    image: registry.cn-hangzhou.aliyuncs.com/s1mplecc/spark-hadoop:3.3.4
     container_name: datanode
     environment:
       - CLUSTER_NAME=single-node
@@ -58,7 +58,7 @@ services:
       - bigdata
 
   spark-master:
-    image: bitnami/spark:3.5.3
+    image: registry.cn-hangzhou.aliyuncs.com/bitnami/spark:3.5.3
     container_name: spark-master
     environment:
       - SPARK_MODE=master
@@ -69,7 +69,7 @@ services:
       - bigdata
 
   spark-worker:
-    image: bitnami/spark:3.5.3
+    image: registry.cn-hangzhou.aliyuncs.com/bitnami/spark:3.5.3
     container_name: spark-worker
     environment:
       - SPARK_MODE=worker
