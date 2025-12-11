@@ -53,8 +53,9 @@ for i in {1..40}; do
 done
 
 echo "▶ Applying Hive init.hql..."
+# 使用容器内临时目录，避免权限问题
 docker exec hive-server mkdir -p /tmp/hive-init
-docker exec hive-server chown -R hive:hive /tmp/hive-init /warehouse /home/hive
+docker cp "$BASE_DIR/hive/init.hql" hive-server:/tmp/hive-init/init.hql
 docker exec hive-server bash -c "/opt/hive/bin/beeline -u 'jdbc:hive2://localhost:10000' -f /tmp/hive-init/init.hql"
 echo "✔ Hive init.hql applied"
 ######################################
