@@ -113,39 +113,59 @@ docker logs opengauss
 1. **本地 ETL**: 在本地机器进行 Extract、Transform 处理，将中间结果输出为较小的 JSONL 文件，例如 `etl/output/merged_reviews.jsonl`。
 2. **本地 Load 到服务器数据库**: 通过本地连接服务器上的数据库，将 JSONL 文件直接写入容器内数据库。无需在服务器上上传原始数据。
 
-### 本地连接服务器数据库
+## 本地 ETL 直接连接并 Load
+首先，先在数据库的`root`目录下进入`dataWarehouse-finalProject/warehouse/docker`目录，运行`./start_container.sh`，启动所有服务（数据库 + Hadoop + Spark）
 
-#### PostgreSQL / openGauss 连接
+然后，在本地运行的 ETL 程序，可以直接连接服务器上通过 Docker 启动的数据库：
+
+示例 Python 连接 openGauss（psycopg2）:
 
 ```python
-import psycopg2
-conn = psycopg2.connect(
-    host='SERVER_IP',
+from pygs_connector import connect
+
+conn = connect(
+    host="SERVER_IP",
     port=5432,
-    database='postgres',
-    user='username',
-    password='password'
+    user="omm",
+    password="GaussDB@2025",
+    database="movie_dw"
 )
+
 cursor = conn.cursor()
-# 执行 Load 操作
+cursor.execute("SELECT COUNT(*) FROM fact_reviews;")
+print(cursor.fetchone())
+
 ```
 
-#### Hive 连接
+示例 PyHive 连接 Hive:
 
 ```python
 from pyhive import hive
-conn = hive.Connection(host='SERVER_IP', port=10000, username='hive')
+
+conn = hive.Connection(
+    host="SERVER_IP",
+    port=10000,
+    username="hive",
+    database="default"
+)
+
 cursor = conn.cursor()
-# 执行 Load 操作
+cursor.execute("SHOW DATABASES")
+print(cursor.fetchall())
 ```
+说明：
+- Hive 表数据存储在容器内 HDFS
+- 本地仅通过 HiveServer2 执行 SQL，不直接操作 HDFS
 
-#### Neo4j 连接
-
+示例 Neo4j Bolt:
 ```python
 from neo4j import GraphDatabase
-driver = GraphDatabase.driver("bolt://SERVER_IP:7687", auth=("neo4j", "password"))
-with driver.session() as session:
-    # 执行 Load 操作
+
+driver = GraphDatabase.driver(
+    "bolt://SERVER_IP:7687",
+    auth=("neo4j", "neo4j_password")
+)
+
 ```
 
 ### Extract

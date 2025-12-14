@@ -392,7 +392,7 @@ docker compose ps
 
 ---
 
-## 9. 本地 ETL 直接连接并 Load（你的情形）
+## 9. 本地 ETL 直接连接并 Load
 在本地运行的 ETL 程序，可以直接连接服务器上通过 Docker 启动的数据库：
 
 - openGauss: `host=SERVER_IP, port=5432, user=gaussdb, password=og_password, db=movie_dw`
