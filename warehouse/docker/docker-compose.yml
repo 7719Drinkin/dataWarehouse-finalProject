@@ -1,0 +1,69 @@
+version: '3.9'
+
+services:
+  hadoop-spark:
+    build: .
+    image: hdfs-spark:latest
+    container_name: hadoop-spark
+    environment:
+      - CLUSTER_NAME=single-node
+      - HDFS_NAMENODE=true
+      - HDFS_DATANODE=true
+      - SPARK_MODE=master
+    volumes:
+      - ./hdfs/namenode:/hadoop/dfs/name
+      - ./hdfs/datanode:/hadoop/dfs/data
+    ports:
+      - "9870:9870"
+      - "8080:8080"
+      - "7077:7077"
+    networks:
+      - bigdata
+
+  opengauss:
+    image: opengauss/opengauss-server:latest
+    container_name: opengauss
+    environment:
+      - GS_PASSWORD=GaussDB@2025   # 确保符合 OpenGauss 密码要求
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./opengauss/data:/var/lib/opengauss
+      - ./opengauss/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "gaussdb"]
+      interval: 10s
+      retries: 10
+
+  hive-server:
+    image: apache/hive:4.0.0
+    container_name: hive-server
+    environment:
+      - SERVICE_NAME=hiveserver2
+    ports:
+      - "10000:10000"
+    volumes:
+      - ./hdfs/warehouse:/warehouse   # 挂载宿主机可写目录
+      - ./hive/init.hql:/opt/hive-init/init.hql:ro
+    depends_on:
+      - hadoop-spark
+    networks:
+      - bigdata
+  neo4j:
+    image: neo4j:latest
+    container_name: neo4j
+    environment:
+      - NEO4J_AUTH=neo4j/neo4j_password
+    ports:
+      - "7474:7474"
+      - "7687:7687"
+    volumes:
+      - ./neo4j/data:/data
+      - ./neo4j/import:/var/lib/neo4j/import
+      - ./neo4j/logs:/logs
+    networks:
+      - bigdata
+
+networks:
+  bigdata:
+    driver: bridge
