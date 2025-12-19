@@ -28,6 +28,7 @@ CREATE EXTERNAL TABLE IF NOT EXISTS movies_meta (
   genres ARRAY<STRING>,
   director STRING,
   actors ARRAY<STRING>,
+  starring ARRAY<STRING>,
   versions ARRAY<STRING>,
   source_files ARRAY<STRING>   -- 多网页/多来源
 )
