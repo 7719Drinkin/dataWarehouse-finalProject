@@ -1,68 +1,301 @@
+/* 数据仓库应用全局样式 */
 :root {
-  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   line-height: 1.5;
   font-weight: 400;
 
-  color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
+  /* 颜色变量 */
+  --primary-color: #1890ff;
+  --success-color: #52c41a;
+  --warning-color: #faad14;
+  --error-color: #ff4d4f;
+  --info-color: #13c2c2;
 
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+  /* 间距变量 */
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 16px;
+  --spacing-lg: 24px;
+  --spacing-xl: 32px;
+  --spacing-xxl: 48px;
+
+  /* 字体大小 */
+  --font-size-xs: 12px;
+  --font-size-sm: 14px;
+  --font-size-md: 16px;
+  --font-size-lg: 18px;
+  --font-size-xl: 20px;
+  --font-size-xxl: 24px;
+
+  /* 边框半径 */
+  --border-radius-sm: 2px;
+  --border-radius-md: 6px;
+  --border-radius-lg: 8px;
+
+  /* 阴影 */
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.12);
+  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.12);
+  --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
 }
 
-a {
-  font-weight: 500;
-  color: #646cff;
-  text-decoration: inherit;
-}
-a:hover {
-  color: #535bf2;
+* {
+  box-sizing: border-box;
 }
 
 body {
   margin: 0;
-  display: flex;
-  place-items: center;
-  min-width: 320px;
+  padding: 0;
+  font-family: var(--font-family);
+  font-size: var(--font-size-md);
+  line-height: 1.5;
+  color: rgba(0, 0, 0, 0.85);
+  background-color: #f5f5f5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+#root {
   min-height: 100vh;
+  background-color: #f5f5f5;
 }
 
-h1 {
-  font-size: 3.2em;
-  line-height: 1.1;
+/* 链接样式 */
+a {
+  color: var(--primary-color);
+  text-decoration: none;
+  transition: color 0.3s ease;
 }
 
-button {
-  border-radius: 8px;
-  border: 1px solid transparent;
-  padding: 0.6em 1.2em;
-  font-size: 1em;
-  font-weight: 500;
-  font-family: inherit;
-  background-color: #1a1a1a;
-  cursor: pointer;
-  transition: border-color 0.25s;
-}
-button:hover {
-  border-color: #646cff;
-}
-button:focus,
-button:focus-visible {
-  outline: 4px auto -webkit-focus-ring-color;
+a:hover {
+  color: #40a9ff;
 }
 
-@media (prefers-color-scheme: light) {
+/* 响应式设计 */
+@media (max-width: 768px) {
   :root {
-    color: #213547;
-    background-color: #ffffff;
+    --font-size-lg: 16px;
+    --font-size-xl: 18px;
+    --font-size-xxl: 20px;
   }
-  a:hover {
-    color: #747bff;
+
+  body {
+    font-size: var(--font-size-sm);
   }
+}
+
+/* 滚动条样式 */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
+
+/* 动画效果 */
+.fade-in {
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 加载动画 */
+.loading-spinner {
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  border-top-color: #fff;
+  animation: spin 1s ease-in-out infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* 图表容器样式 */
+.chart-container {
+  position: relative;
+  width: 100%;
+  height: 300px;
+}
+
+.chart-container canvas {
+  max-width: 100% !important;
+  height: auto !important;
+}
+
+/* 卡片样式增强 */
+.ant-card {
+  border-radius: var(--border-radius-lg);
+  box-shadow: var(--shadow-sm);
+  transition: box-shadow 0.3s ease;
+}
+
+.ant-card:hover {
+  box-shadow: var(--shadow-md);
+}
+
+/* 按钮样式增强 */
+.ant-btn {
+  border-radius: var(--border-radius-md);
+  font-weight: 500;
+  transition: all 0.3s ease;
+}
+
+.ant-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
+}
+
+/* 表单样式增强 */
+.ant-form-item {
+  margin-bottom: var(--spacing-lg);
+}
+
+.ant-form-item-label > label {
+  font-weight: 500;
+  color: rgba(0, 0, 0, 0.85);
+}
+
+/* 表格样式增强 */
+.ant-table {
+  border-radius: var(--border-radius-lg);
+  overflow: hidden;
+}
+
+.ant-table-thead > tr > th {
+  background-color: #fafafa;
+  font-weight: 600;
+  border-bottom: 2px solid #f0f0f0;
+}
+
+/* 统计卡片样式 */
+.ant-statistic-title {
+  font-size: var(--font-size-sm);
+  color: rgba(0, 0, 0, 0.65);
+}
+
+.ant-statistic-content {
+  font-size: var(--font-size-xl);
+  font-weight: 600;
+}
+
+/* 进度条样式 */
+.ant-progress-inner {
+  border-radius: var(--border-radius-md);
+}
+
+/* 标签样式 */
+.ant-tag {
+  border-radius: var(--border-radius-sm);
+  font-weight: 500;
+}
+
+/* 消息样式 */
+.ant-message {
+  border-radius: var(--border-radius-md);
+}
+
+/* 模态框样式 */
+.ant-modal-content {
+  border-radius: var(--border-radius-lg);
+}
+
+.ant-modal-header {
+  border-radius: var(--border-radius-lg) var(--border-radius-lg) 0 0;
+}
+
+/* 抽屉样式 */
+.ant-drawer-content {
+  border-radius: var(--border-radius-lg) 0 0 var(--border-radius-lg);
+}
+
+/* 工具提示样式 */
+.ant-tooltip {
+  font-size: var(--font-size-sm);
+}
+
+/* 数据仓库特定样式 */
+.data-warehouse-header {
+  background: linear-gradient(135deg, var(--primary-color), #52c41a);
+  color: white;
+  padding: var(--spacing-xl);
+  border-radius: var(--border-radius-lg);
+  margin-bottom: var(--spacing-xl);
+}
+
+.query-result-highlight {
+  background-color: #f6ffed;
+  border: 1px solid #b7eb8f;
+  border-radius: var(--border-radius-md);
+  padding: var(--spacing-md);
+  margin: var(--spacing-md) 0;
+}
+
+.performance-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border-radius: var(--border-radius-sm);
+  font-size: var(--font-size-xs);
+  font-weight: 500;
+  text-transform: uppercase;
+}
+
+.performance-indicator.excellent {
+  background-color: #f6ffed;
+  color: #52c41a;
+}
+
+.performance-indicator.good {
+  background-color: #fffbe6;
+  color: #faad14;
+}
+
+.performance-indicator.needs-improvement {
+  background-color: #fff1f0;
+  color: #ff4d4f;
+}
+
+/* 打印样式 */
+@media print {
+  body {
+    background-color: white !important;
+  }
+
+  .ant-layout-sider,
+  .ant-btn,
   button {
-    background-color: #f9f9f9;
+    display: none !important;
+  }
+
+  .ant-card {
+    box-shadow: none !important;
+    border: 1px solid #d9d9d9 !important;
   }
 }
