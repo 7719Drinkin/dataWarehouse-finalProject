@@ -26,7 +26,7 @@ CREATE EXTERNAL TABLE IF NOT EXISTS movies_meta (
   title STRING,
   release_date DATE,
   genres ARRAY<STRING>,
-  director STRING,
+  director ARRAY<STRING>,
   actors ARRAY<STRING>,
   starring ARRAY<STRING>,
   versions ARRAY<STRING>,
