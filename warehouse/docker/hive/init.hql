@@ -12,7 +12,7 @@ CREATE EXTERNAL TABLE IF NOT EXISTS reviews_clean (
   review_time TIMESTAMP,
   review_unix BIGINT,
   review_text STRING,
-  source STRING,           -- snap / amazon
+  source ARRAY<STRING>,           -- snap / amazon
   source_file STRING       -- 原始文本文件或网页URL
 )
 PARTITIONED BY (year INT, month INT)
