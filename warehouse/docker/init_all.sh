@@ -18,6 +18,11 @@ cd "$BASE_DIR"
 echo "▶ Building Hadoop+Spark image..."
 docker build -t hdfs-spark:latest .
 
+echo "▶ Recreating only Hive container with new limits..."
+$DC stop hive-server
+$DC rm -f hive-server
+$DC up -d hive-server
+
 echo "▶ Starting all containers..."
 $DC up -d
 
@@ -74,5 +79,32 @@ echo "▶ Applying Neo4j init.cypher..."
 docker cp "$BASE_DIR/neo4j/init.cypher" neo4j:/init.cypher
 docker exec neo4j bash -c "cat /init.cypher | /var/lib/neo4j/bin/cypher-shell -u neo4j -p neo4j_password"
 echo "✔ Neo4j init.cypher applied"
+
+echo ""
+echo "═══════════════════════════════════════"
+echo "▶ Resource Limits Verification"
+echo "═══════════════════════════════════════"
+
+# 检查CPU限制
+CPU_NANO=$(docker inspect hive-server --format='{{.HostConfig.NanoCpus}}')
+if [ "$CPU_NANO" = "1500000000" ]; then
+    echo "✅ CPU限制: 1.5 cores (正确)"
+else
+    echo "❌ CPU限制: $CPU_NANO (期望: 1500000000)"
+fi
+
+# 检查内存限制
+MEMORY=$(docker inspect hive-server --format='{{.HostConfig.Memory}}')
+if [ "$MEMORY" = "4294967296" ]; then
+    echo "✅ 内存限制: 4GB (正确)"
+else
+    echo "❌ 内存限制: $MEMORY (期望: 4294967296)"
+fi
+
+echo ""
+echo "▶ Current resource usage:"
+docker stats hive-server --no-stream --format "table {{.Container}}\t{{.CPUPerc}}\t{{.MemUsage}}"
+echo ""
+echo "💡 Use 'docker stats hive-server' to monitor in real-time"
 
 echo "🎉 ALL INITIALIZATION COMPLETE"
