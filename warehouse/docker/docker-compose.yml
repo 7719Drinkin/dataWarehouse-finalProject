@@ -38,11 +38,8 @@ services:
     container_name: hive-server
     environment:
       - SERVICE_NAME=hiveserver2
-      # JVM内存设置
-      - HIVE_HEAPSIZE=2048
       - HADOOP_HEAPSIZE=2048
-      # Hive优化参数
-      - HIVE_OPTS=-Xmx2g -Xms2g -XX:ParallelGCThreads=2 -XX:ConcGCThreads=1
+      - HIVE_HEAPSIZE=2048
     ports:
       - "10000:10000"
     volumes:
