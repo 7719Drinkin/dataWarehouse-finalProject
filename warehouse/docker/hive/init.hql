@@ -12,7 +12,6 @@ CREATE EXTERNAL TABLE reviews_clean_amazon (
   review_unix BIGINT COMMENT 'review/time (unix)',
   review_summary STRING COMMENT 'review/summary',
   review_text STRING COMMENT 'review/text',
-  source ARRAY<STRING> COMMENT 'data source: snap / amazon',
 )
 PARTITIONED BY (year INT, month INT)
 STORED AS PARQUET
