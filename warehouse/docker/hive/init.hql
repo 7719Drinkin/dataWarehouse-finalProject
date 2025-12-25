@@ -3,24 +3,22 @@ USE movie_dw;
 
 -- 电影评论表（外部表，按年月分区）
 DROP TABLE IF EXISTS reviews_clean;
-CREATE EXTERNAL TABLE IF NOT EXISTS reviews_clean (
-  review_id STRING,
-  movie_id STRING,
-  user_id STRING,
-  profile_name STRING,
-  score DOUBLE,
-  review_time TIMESTAMP,
-  review_unix BIGINT,
-  review_text STRING,
-  source ARRAY<STRING>,           -- snap / amazon
-  source_file STRING       -- 原始文本文件或网页URL
+CREATE EXTERNAL TABLE reviews_clean_amazon (
+  asin STRING COMMENT 'product/productId',
+  user_id STRING COMMENT 'review/userId',
+  profile_name STRING COMMENT 'review/profileName',
+  helpfulness STRING COMMENT 'review/helpfulness, e.g. 2/3',
+  score DOUBLE COMMENT 'review/score',
+  review_unix BIGINT COMMENT 'review/time (unix)',
+  review_summary STRING COMMENT 'review/summary',
+  review_text STRING COMMENT 'review/text',
+  source ARRAY<STRING> COMMENT 'data source: snap / amazon',
 )
 PARTITIONED BY (year INT, month INT)
 STORED AS PARQUET
-LOCATION '/warehouse/clean/reviews/';
+LOCATION '/warehouse/clean/reviews_amazon/';
 
 -- 电影元数据表
-DROP TABLE IF EXISTS movies_meta;
 CREATE EXTERNAL TABLE IF NOT EXISTS movies_meta (
   movie_id STRING,
   title STRING,
