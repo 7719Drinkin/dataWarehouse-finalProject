@@ -61,12 +61,14 @@ const styleSheet = document.createElement('style');
 styleSheet.textContent = globalStyles;
 document.head.appendChild(styleSheet);
 
-const root = ReactDOM.createRoot(
-  document.getElementById('root') as HTMLElement
-);
-
-root.render(
-  <React.StrictMode>
-    <App />
-  </React.StrictMode>
-);
+const rootEl = document.getElementById('root');
+if (!rootEl) {
+  console.error('Root element with id="root" not found. Check public/index.html');
+} else {
+  const root = ReactDOM.createRoot(rootEl);
+  root.render(
+    <React.StrictMode>
+      <App />
+    </React.StrictMode>
+  );
+}

@@ -1,13 +1,14 @@
-// 声明process类型
-declare const process: {
-  env: {
-    REACT_APP_API_URL?: string;
-    [key: string]: string | undefined;
-  };
+// 获取 API URL 的辅助函数
+const getBaseUrl = (): string => {
+  // 方案 1: 使用 Vite 环境变量
+  if (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_URL) {
+    return import.meta.env.VITE_API_URL;
+  }
+  return 'http://localhost:5000';
 };
 
 export const API_CONFIG = {
-  BASE_URL: process.env.REACT_APP_API_URL || 'http://localhost:5000',
+  BASE_URL: getBaseUrl(),
   ENDPOINTS: {
     HEALTH: '/api/query/health',
     MOVIES_BY_YEAR: '/api/query/movies-by-year',
