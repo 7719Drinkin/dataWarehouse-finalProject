@@ -30,6 +30,7 @@ DROP TABLE IF EXISTS movie_actor;
 CREATE TABLE IF NOT EXISTS movie_actor (
   movie_id TEXT,
   actor_id TEXT,
+  is_lead BOOLEAN DEFAULT FALSE,
   PRIMARY KEY (movie_id, actor_id)
 );
 
@@ -39,12 +40,15 @@ CREATE TABLE IF NOT EXISTS fact_reviews (
   review_id BIGSERIAL PRIMARY KEY,
   movie_id TEXT NOT NULL,
   user_id TEXT,
+  profile_name TEXT,
+  helpfulness TEXT,
   score NUMERIC(3,1),
   review_time TIMESTAMP,
   review_year INT,
   review_quarter INT,
   review_month INT,
   review_week INT,
+  review_summary TEXT,
   review_text TEXT
 );
 
