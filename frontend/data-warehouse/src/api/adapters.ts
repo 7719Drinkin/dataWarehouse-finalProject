@@ -10,7 +10,7 @@ import type { QueryParams } from '../types/query';
 
 // 后端响应适配器 - 将后端响应格式转换为前端期望的格式
 // Interfaces for raw backend responses to ensure type safety
-interface BackendDatabaseResult {
+export interface BackendDatabaseResult {
   success?: boolean;
   execution_time?: number;
   result?: QueryResultData;
@@ -18,7 +18,7 @@ interface BackendDatabaseResult {
   error?: string;
 }
 
-interface BackendQueryResponse {
+export interface BackendQueryResponse {
   success: boolean;
   results?: Record<string, BackendDatabaseResult>;
   query_type?: QueryType;
@@ -28,7 +28,7 @@ interface BackendQueryResponse {
   error?: string;
 }
 
-interface BackendHealthResponse {
+export interface BackendHealthResponse {
   status?: string;
   service?: string;
   version?: string;

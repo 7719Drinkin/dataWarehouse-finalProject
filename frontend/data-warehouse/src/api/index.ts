@@ -5,7 +5,7 @@ import type { QueryCondition, Pagination, ApiResponse, DataSource } from '../typ
 // 模拟电影数据
 const generateMockMovies = (count: number): Movie[] => {
   return Array.from({ length: count }, (_, i) => ({
-    movie_id: `m_${i + 1}`,
+    id: `m_${i + 1}`,            // 改成 id
     title: `Movie Title ${i + 1}`,
     release_date: `${2020 - i}-01-01`,
     genres: ['Action', 'Adventure', 'Sci-Fi'].slice(i % 3),
@@ -13,6 +13,8 @@ const generateMockMovies = (count: number): Movie[] => {
     actors: [`Actor ${i + 1}`, `Actor ${i + 2}`],
     starring: [`Actor ${i + 1}`],
     versions: ['IMAX', '3D'].slice(i % 2),
+    rating: Math.round(Math.random() * 5 * 10) / 10, // 0~5 星
+    review_count: Math.floor(Math.random() * 1000)
   }));
 };
 
@@ -32,8 +34,8 @@ const generateMockReviews = (count: number, movieId: string): Review[] => {
 };
 
 const allMovies = generateMockMovies(100);
-const allReviews = allMovies.reduce((acc, review) => {
-  return acc.concat(generateMockReviews(100, review.movie_id));
+const allReviews = allMovies.reduce((acc, movie) => {
+  return acc.concat(generateMockReviews(100, movie.id));
 }, [] as Review[]);
 
 

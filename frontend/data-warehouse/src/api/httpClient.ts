@@ -1,4 +1,4 @@
-export interface HttpResponse<T = any> {
+export interface HttpResponse<T = unknown> {
   success: boolean;
   data?: T;
   error?: string;
@@ -12,7 +12,7 @@ class HttpClient {
     this.baseURL = baseURL;
   }
 
-  async get<T = any>(endpoint: string, params?: Record<string, string | number | boolean>): Promise<HttpResponse<T>> {
+  async get<T = unknown>(endpoint: string, params?: Record<string, string | number | boolean>): Promise<HttpResponse<T>> {
     try {
       const url = new URL(endpoint, this.baseURL);
 

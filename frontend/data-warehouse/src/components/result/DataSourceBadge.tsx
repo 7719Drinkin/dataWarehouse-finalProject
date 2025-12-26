@@ -1,5 +1,5 @@
 import React from 'react';
-import { DatabaseType } from '../../types/apiTypes';
+import { DatabaseType } from '../../types/api';
 
 interface DataSourceBadgeProps {
   database: DatabaseType;

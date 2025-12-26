@@ -1,7 +1,8 @@
 import React from 'react';
 import DataSourceBadge from './DataSourceBadge';
-import { DatabaseType } from '../../types/apiTypes';
-import type { DatabaseResults } from '../../types/apiTypes';
+import { DatabaseType } from '../../types/api';
+import type { Movie } from '../../types/data';
+import type { DatabaseResults } from '../../types/api';
 
 interface ResultTableProps {
   results: DatabaseResults;
@@ -70,7 +71,7 @@ const ResultTable: React.FC<ResultTableProps> = ({ results }) => {
             </tr>
           </thead>
           <tbody>
-            {allMovies.map((movie, index) => (
+            {allMovies.filter((item): item is Movie => 'id' in item).map((movie, index) => (
               <tr key={`${movie.database}-${movie.id}-${index}`} style={tableRowStyle}>
                 <td style={tableCellStyle}>{movie.title}</td>
                 <td style={tableCellStyle}>{movie.director}</td>

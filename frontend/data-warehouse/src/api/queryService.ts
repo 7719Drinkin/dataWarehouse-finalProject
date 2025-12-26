@@ -1,6 +1,7 @@
 import { httpClient } from './httpClient';
 import { BackendAdapter } from './adapters';
 import { API_CONFIG } from './config';
+import type { BackendHealthResponse, BackendQueryResponse } from './adapters';
 import type {
   ApiResponse,
   QueryResult
@@ -45,7 +46,7 @@ function mapParamsToBackend(queryType: QueryType, params: QueryParams): Record<s
 export class QueryService {
   // 健康检查
   static async healthCheck(): Promise<ApiResponse<{status: string; service: string; version: string}>> {
-    const response = await httpClient.get(API_CONFIG.ENDPOINTS.HEALTH);
+    const response = await httpClient.get<BackendHealthResponse>(API_CONFIG.ENDPOINTS.HEALTH);
 
     if (!response.success) {
       return {
@@ -56,7 +57,7 @@ export class QueryService {
       };
     }
 
-    return BackendAdapter.adaptHealthResponse(response.data);
+    return BackendAdapter.adaptHealthResponse(response.data ?? null);
   }
 
   // 通用查询执行方法
@@ -71,7 +72,7 @@ export class QueryService {
       }
 
       const backendParams = mapParamsToBackend(queryType, params);
-      const response = await httpClient.get(endpoint, backendParams);
+      const response = await httpClient.get<BackendQueryResponse>(endpoint, backendParams);
 
       if (!response.success) {
         return {
@@ -82,7 +83,7 @@ export class QueryService {
         };
       }
 
-      return BackendAdapter.adaptQueryResponse(response.data);
+      return BackendAdapter.adaptQueryResponse(response.data ?? {success: false});
     } catch (error) {
       return {
         success: false,

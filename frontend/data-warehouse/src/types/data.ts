@@ -69,5 +69,5 @@ export interface ChartData {
 export interface ChartConfig {
   type: 'bar' | 'line' | 'pie' | 'doughnut';
   data: ChartData;
-  options?: any; // It's better to use ChartOptions from chart.js if it's used
+  options?: unknown; // It's better to use ChartOptions from chart.js if it's used
 }

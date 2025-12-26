@@ -66,7 +66,7 @@ const QueryForm: React.FC<QueryFormProps> = ({
       case QueryType.MOVIES_BY_TIME:
         return (
           <div>
-                        {createInput('年份', 'year', 'number', '可选，例如: 2023', 1900, 2030)}
+            {createInput('年份', 'year', 'number', '可选，例如: 2023', 1900, 2030)}
             {createInput('月份', 'month', 'number', '可选 (1-12)', 1, 12)}
             {createInput('季度', 'quarter', 'number', '可选 (1-4)', 1, 4)}
             {createInput('周', 'week', 'number', '可选 (1-52)', 1, 52)}
@@ -95,9 +95,6 @@ const QueryForm: React.FC<QueryFormProps> = ({
 
       case QueryType.DIRECTOR_ACTOR_COLLABORATIONS:
         return createInput('导演', 'director', 'text', '输入导演姓名');
-
-      case QueryType.POPULAR_ACTOR_COMBINATIONS:
-        return createInput('电影类别', 'genre', 'text', '输入电影类别');
 
       case QueryType.HIGH_RATED_MOVIES:
         return (
