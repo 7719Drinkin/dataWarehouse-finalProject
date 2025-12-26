@@ -1,3 +1,8 @@
+SET hive.execution.engine=mr;
+SET hive.vectorized.execution.enabled=false;
+SET hive.auto.convert.join=false;
+SET hive.stats.autogather=false;
+
 CREATE DATABASE IF NOT EXISTS movie_dw;
 USE movie_dw;
 
