@@ -1,5 +1,5 @@
 import React from 'react';
-import type { ChartConfig } from '../../types/apiTypes';
+import type { ChartConfig } from '../../types/data';
 
 interface ChartRendererProps {
   config: ChartConfig;

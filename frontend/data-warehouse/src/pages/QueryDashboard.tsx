@@ -6,12 +6,9 @@ import LoadingIndicator from '../components/common/LoadingIndicator';
 import ErrorMessage from '../components/common/ErrorMessage';
 import WelcomePlaceholder from '../components/common/WelcomePlaceholder';
 import { QueryService } from '../api/queryService';
-import { QueryType } from '../types/apiTypes';
-import type {
-  QueryParams,
-  QueryResult,
-  ChartConfig
-} from '../types/apiTypes';
+import type { QueryType, QueryParams } from '../types/query';
+import type { QueryResult } from '../types/api';
+import type {  ChartConfig} from '../types/data';
 
 const QueryDashboard: React.FC = () => {
   const [queryResult, setQueryResult] = useState<QueryResult | null>(null);

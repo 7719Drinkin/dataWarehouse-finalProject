@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import QueryTypeSelector from './QueryTypeSelector';
-import { QueryType } from '../../types/apiTypes';
-import type { QueryParams } from '../../types/apiTypes';
+import { QueryType } from '../../types/query';
+import type { QueryParams } from '../../types/query';
 
 interface QueryFormProps {
   onSubmit: (queryType: QueryType, params: QueryParams) => void;
@@ -34,7 +34,7 @@ const QueryForm: React.FC<QueryFormProps> = ({
     onSubmit(queryType, params);
   };
 
-  const updateParam = (key: keyof QueryParams, value: any) => {
+  const updateParam = (key: keyof QueryParams, value: string | number | undefined) => {
     setParams(prev => ({ ...prev, [key]: value }));
   };
 
@@ -45,7 +45,7 @@ const QueryForm: React.FC<QueryFormProps> = ({
         <label style={{ color: '#4b5563', fontSize: '14px', display: 'block', marginBottom: '4px' }}>{label}:</label>
         <input
           type={type}
-          value={params[key] as any || ''}
+          value={params[key] || ''}
           onChange={(e) => updateParam(key, e.target.value ? (type === 'number' ? parseInt(e.target.value) : e.target.value) : undefined)}
           placeholder={placeholder}
           min={min}

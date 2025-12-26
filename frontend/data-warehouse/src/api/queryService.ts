@@ -3,10 +3,10 @@ import { BackendAdapter } from './adapters';
 import { API_CONFIG } from './config';
 import type {
   ApiResponse,
-  QueryResult,
-  QueryParams
-} from '../types/apiTypes';
-import { QueryType } from '../types/apiTypes';
+  QueryResult
+} from '../types/api';
+import { QueryType } from '../types/query';
+import type { QueryParams } from '../types/query';
 
 // 参数映射：前端参数名 -> 后端参数名
 const PARAM_MAPPING: Record<string, string> = {
@@ -29,8 +29,8 @@ const QUERY_ENDPOINT_MAP: Record<QueryType, string> = {
 };
 
 // 参数映射函数
-function mapParamsToBackend(queryType: QueryType, params: QueryParams): Record<string, any> {
-  const mappedParams: Record<string, any> = {};
+function mapParamsToBackend(queryType: QueryType, params: QueryParams): Record<string, string | number> {
+  const mappedParams: Record<string, string | number> = {};
 
   Object.entries(params).forEach(([key, value]) => {
     if (value === undefined || value === null) return;

@@ -12,7 +12,7 @@ class HttpClient {
     this.baseURL = baseURL;
   }
 
-  async get<T = any>(endpoint: string, params?: Record<string, any>): Promise<HttpResponse<T>> {
+  async get<T = any>(endpoint: string, params?: Record<string, string | number | boolean>): Promise<HttpResponse<T>> {
     try {
       const url = new URL(endpoint, this.baseURL);
 

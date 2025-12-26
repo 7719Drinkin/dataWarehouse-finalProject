@@ -1,5 +1,5 @@
 import React from 'react';
-import { QueryType } from '../../types/apiTypes';
+import { QueryType } from '../../types/query';
 
 interface QueryTypeSelectorProps {
   selectedType: QueryType;
