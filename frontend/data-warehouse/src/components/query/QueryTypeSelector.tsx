@@ -10,9 +10,9 @@ const QUERY_TYPE_OPTIONS = [
   { value: QueryType.MOVIES_BY_TIME, label: '按时间查询' },
   { value: QueryType.MOVIES_BY_PERSON, label: '按人员查询' },
   { value: QueryType.MOVIES_BY_PROPERTY, label: '按属性查询' },
-  { value: QueryType.ACTOR_COLLABORATIONS, label: '演员-演员合作关系查询' },
-  { value: QueryType.DIRECTOR_ACTOR_COLLABORATIONS, label: '导演-演员合作查询' },
   { value: QueryType.HIGH_RATED_MOVIES, label: '高评分电影查询' },
+  { value: QueryType.ACTOR_COLLABORATIONS, label: '演员-演员合作关系查询' },
+  { value: QueryType.DIRECTOR_ACTOR_COLLABORATIONS, label: '导演-演员合作关系查询' },
   { value: QueryType.COMBINED_QUERY, label: '组合查询' }
 ];
 

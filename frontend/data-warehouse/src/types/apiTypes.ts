@@ -10,7 +10,7 @@ export interface ApiResponse<T> {
 
 // Database Types
 export enum DatabaseType {
-  OPENGAUSS = 'openGauss',
+  OPENGAUSS = 'OpenGauss',
   HIVE = 'Hive',
   NEO4J = 'Neo4j'
 }
@@ -20,9 +20,9 @@ export enum QueryType {
   MOVIES_BY_TIME = 'movies_by_time',
   MOVIES_BY_PERSON = 'movies_by_person',
   MOVIES_BY_PROPERTY = 'movies_by_property',
+  HIGH_RATED_MOVIES = 'high_rated_movies',
   ACTOR_COLLABORATIONS = 'actor_collaborations',
   DIRECTOR_ACTOR_COLLABORATIONS = 'director_actor_collaborations',
-  HIGH_RATED_MOVIES = 'high_rated_movies',
   COMBINED_QUERY = 'combined_query'
 }
 

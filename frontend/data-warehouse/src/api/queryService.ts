@@ -22,9 +22,9 @@ const QUERY_ENDPOINT_MAP: Record<QueryType, string> = {
   [QueryType.MOVIES_BY_TIME]: API_CONFIG.ENDPOINTS.MOVIES_BY_TIME, // 使用相同的端点，根据参数区分
   [QueryType.MOVIES_BY_PERSON]: API_CONFIG.ENDPOINTS.MOVIES_BY_PERSON, // Generic endpoint
   [QueryType.MOVIES_BY_PROPERTY]: API_CONFIG.ENDPOINTS.MOVIES_BY_PROPERTY, // Generic endpoint
+  [QueryType.HIGH_RATED_MOVIES]: API_CONFIG.ENDPOINTS.HIGH_RATED_MOVIES,
   [QueryType.ACTOR_COLLABORATIONS]: API_CONFIG.ENDPOINTS.ACTOR_COLLABORATIONS,
   [QueryType.DIRECTOR_ACTOR_COLLABORATIONS]: API_CONFIG.ENDPOINTS.DIRECTOR_ACTOR_COLLABORATIONS,
-  [QueryType.HIGH_RATED_MOVIES]: API_CONFIG.ENDPOINTS.HIGH_RATED_MOVIES,
   [QueryType.COMBINED_QUERY]: API_CONFIG.ENDPOINTS.MOVIES_BY_COMBINED_QUERY // 需要后端支持
 };
 
@@ -38,8 +38,6 @@ function mapParamsToBackend(queryType: QueryType, params: QueryParams): Record<s
     const backendKey = PARAM_MAPPING[key] || key;
     mappedParams[backendKey] = value;
   });
-
-
 
   return mappedParams;
 }
@@ -96,9 +94,6 @@ export class QueryService {
   }
 
   // 便捷方法 - 各种查询类型
-
-
-
   static async queryHighRatedMovies(minScore: number = 8.0, minReviews: number = 1000): Promise<ApiResponse<QueryResult>> {
     return this.executeQuery(QueryType.HIGH_RATED_MOVIES, { min_score: minScore, min_reviews: minReviews });
   }
@@ -109,9 +104,5 @@ export class QueryService {
 
   static async queryDirectorActorCollaborations(director: string): Promise<ApiResponse<QueryResult>> {
     return this.executeQuery(QueryType.DIRECTOR_ACTOR_COLLABORATIONS, { director });
-  }
-
-  static async queryPopularActorCombinations(genre: string): Promise<ApiResponse<QueryResult>> {
-    return this.executeQuery(QueryType.POPULAR_ACTOR_COMBINATIONS, { genre });
   }
 }
