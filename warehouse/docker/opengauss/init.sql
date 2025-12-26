@@ -1,3 +1,4 @@
+-- Active: 1766069555723@@139.196.151.22@5432@movie_dw
 -- 初始化 openGauss schema & tables (简化示例)
 CREATE DATABASE movie_dw;
 \c movie_dw;

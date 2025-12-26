@@ -18,11 +18,6 @@ cd "$BASE_DIR"
 echo "▶ Building Hadoop+Spark image..."
 docker build -t hdfs-spark:latest .
 
-echo "▶ Recreating only Hive container with new limits..."
-$DC stop hive-server
-$DC rm -f hive-server
-$DC up -d hive-server
-
 echo "▶ Starting all containers..."
 $DC up -d
 
