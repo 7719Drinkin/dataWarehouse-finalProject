@@ -68,7 +68,6 @@ services:
       - hadoop-spark
     networks:
       - bigdata
-    command: bash -c "/opt/hive/bin/hiveserver2"
     mem_limit: 1g
     mem_reservation: 512m
     cpus: 0.5
