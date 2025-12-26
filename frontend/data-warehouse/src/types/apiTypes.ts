@@ -22,7 +22,6 @@ export enum QueryType {
   MOVIES_BY_PROPERTY = 'movies_by_property',
   ACTOR_COLLABORATIONS = 'actor_collaborations',
   DIRECTOR_ACTOR_COLLABORATIONS = 'director_actor_collaborations',
-  POPULAR_ACTOR_COMBINATIONS = 'popular_actor_combinations',
   HIGH_RATED_MOVIES = 'high_rated_movies',
   COMBINED_QUERY = 'combined_query'
 }

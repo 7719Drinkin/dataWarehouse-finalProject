@@ -17,7 +17,6 @@ export const API_CONFIG = {
     HIGH_RATED_MOVIES: '/api/query/high-rated-movies',
     ACTOR_COLLABORATIONS: '/api/query/actor-collaborations',
     DIRECTOR_ACTOR_COLLABORATIONS: '/api/query/director-actor-collaborations',
-    POPULAR_ACTOR_COMBINATIONS: '/api/query/popular-actor-combinations',
     MOVIES_BY_COMBINED_QUERY: '/api/query/movies-by-combined-query',
   },
   TIMEOUT: 30000 // 30秒超时
