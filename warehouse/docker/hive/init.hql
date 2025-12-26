@@ -20,14 +20,14 @@ LOCATION '/warehouse/clean/reviews_amazon/';
 -- Staging表(必须创建!) - 用于接收PyHive上传的数据
 -- ====================================
 CREATE TABLE reviews_csv_ext (
-  productId STRING,
-  userid STRING,
-  profilename STRING,
+  product_id STRING,
+  user_id STRING,
+  profile_name STRING,
   helpfulness STRING,
   score DOUBLE,
-  time BIGINT,
-  summary STRING,
-  text STRING
+  review_time BIGINT,
+  review_summary STRING,
+  review_text STRING
 )
 ROW FORMAT DELIMITED
 FIELDS TERMINATED BY ','
