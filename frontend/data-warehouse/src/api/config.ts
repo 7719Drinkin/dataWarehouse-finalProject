@@ -11,14 +11,14 @@ export const API_CONFIG = {
   BASE_URL: getBaseUrl(),
   ENDPOINTS: {
     HEALTH: '/api/query/health',
-    MOVIES_BY_YEAR: '/api/query/movies-by-year',
-    MOVIES_BY_DIRECTOR: '/api/query/movies-by-director',
-    MOVIES_BY_ACTOR: '/api/query/movies-by-actor',
-    MOVIES_BY_GENRE: '/api/query/movies-by-genre',
+    MOVIES_BY_TIME: '/api/query/movies-by-year', // Generic endpoint for time, person, and property queries
+    MOVIES_BY_PERSON: '/api/query/movies-by-person',
+    MOVIES_BY_PROPERTY: '/api/query/movies-by-property',
     HIGH_RATED_MOVIES: '/api/query/high-rated-movies',
     ACTOR_COLLABORATIONS: '/api/query/actor-collaborations',
     DIRECTOR_ACTOR_COLLABORATIONS: '/api/query/director-actor-collaborations',
-    POPULAR_ACTOR_COMBINATIONS: '/api/query/popular-actor-combinations'
+    POPULAR_ACTOR_COMBINATIONS: '/api/query/popular-actor-combinations',
+    MOVIES_BY_COMBINED_QUERY: '/api/query/movies-by-combined-query',
   },
   TIMEOUT: 30000 // 30秒超时
 };

@@ -6,19 +6,22 @@ import type { QueryParams } from '../../types/apiTypes';
 interface QueryFormProps {
   onSubmit: (queryType: QueryType, params: QueryParams) => void;
   loading?: boolean;
+  database: string;
+  onDatabaseChange: (db: string) => void;
 }
 
-const QueryForm: React.FC<QueryFormProps> = ({ onSubmit, loading = false }) => {
-  const [queryType, setQueryType] = useState<QueryType>(QueryType.MOVIES_BY_YEAR);
+const QueryForm: React.FC<QueryFormProps> = ({
+  onSubmit,
+  loading = false,
+  database,
+  onDatabaseChange,
+}) => {
+    const [queryType, setQueryType] = useState<QueryType>(QueryType.MOVIES_BY_TIME);
   const [params, setParams] = useState<QueryParams>({
-    year: new Date().getFullYear(),
-    month: 1,
-    quarter: 1,
-    week: 1,
     movie_title: '',
     director: '',
-    actor: '',
-    role_type: 'starring',
+    starring_actor: '',
+    participating_actor: '',
     genre: '',
     min_score: 8.0,
     min_reviews: 1000,
@@ -36,235 +39,82 @@ const QueryForm: React.FC<QueryFormProps> = ({ onSubmit, loading = false }) => {
   };
 
   const renderParameterInputs = () => {
+    // Helper to create styled input fields for consistency
+    const createInput = (label: string, key: keyof QueryParams, type: string, placeholder: string, min?: number, max?: number) => (
+      <div style={{ marginBottom: '1rem' }}>
+        <label style={{ color: '#4b5563', fontSize: '14px', display: 'block', marginBottom: '4px' }}>{label}:</label>
+        <input
+          type={type}
+          value={params[key] as any || ''}
+          onChange={(e) => updateParam(key, e.target.value ? (type === 'number' ? parseInt(e.target.value) : e.target.value) : undefined)}
+          placeholder={placeholder}
+          min={min}
+          max={max}
+          style={{
+            width: '100%',
+            padding: '10px',
+            borderRadius: '6px',
+            border: '1px solid #d1d5db',
+            fontSize: '16px',
+            backgroundColor: 'white'
+          }}
+        />
+      </div>
+    );
+
     switch (queryType) {
-      case QueryType.MOVIES_BY_YEAR:
+      case QueryType.MOVIES_BY_TIME:
         return (
           <div>
-            <label>年份:</label>
-            <input
-              type="number"
-              value={params.year || ''}
-              onChange={(e) => updateParam('year', parseInt(e.target.value))}
-              placeholder="输入年份"
-              min="1900"
-              max="2030"
-            />
+                        {createInput('年份', 'year', 'number', '可选，例如: 2023', 1900, 2030)}
+            {createInput('月份', 'month', 'number', '可选 (1-12)', 1, 12)}
+            {createInput('季度', 'quarter', 'number', '可选 (1-4)', 1, 4)}
+            {createInput('周', 'week', 'number', '可选 (1-52)', 1, 52)}
           </div>
         );
 
-      case QueryType.MOVIES_BY_MONTH:
+      case QueryType.MOVIES_BY_PERSON:
         return (
           <div>
-            <label>年份:</label>
-            <input
-              type="number"
-              value={params.year || ''}
-              onChange={(e) => updateParam('year', parseInt(e.target.value))}
-              placeholder="输入年份"
-            />
-            <label>月份:</label>
-            <input
-              type="number"
-              value={params.month || ''}
-              onChange={(e) => updateParam('month', parseInt(e.target.value))}
-              placeholder="输入月份 (1-12)"
-              min="1"
-              max="12"
-            />
+            {createInput('导演', 'director', 'text', '可选')}
+            {createInput('主演', 'starring_actor', 'text', '可选')}
+            {createInput('参演', 'participating_actor', 'text', '可选')}
           </div>
         );
 
-      case QueryType.MOVIES_BY_QUARTER:
+      case QueryType.MOVIES_BY_PROPERTY:
         return (
           <div>
-            <label>年份:</label>
-            <input
-              type="number"
-              value={params.year || ''}
-              onChange={(e) => updateParam('year', parseInt(e.target.value))}
-              placeholder="输入年份"
-            />
-            <label>季度:</label>
-            <select
-              value={params.quarter || 1}
-              onChange={(e) => updateParam('quarter', parseInt(e.target.value))}
-            >
-              <option value={1}>第一季度</option>
-              <option value={2}>第二季度</option>
-              <option value={3}>第三季度</option>
-              <option value={4}>第四季度</option>
-            </select>
-          </div>
-        );
-
-      case QueryType.MOVIES_BY_WEEK:
-        return (
-          <div>
-            <label>年份:</label>
-            <input
-              type="number"
-              value={params.year || ''}
-              onChange={(e) => updateParam('year', parseInt(e.target.value))}
-              placeholder="输入年份"
-            />
-            <label>周数:</label>
-            <input
-              type="number"
-              value={params.week || ''}
-              onChange={(e) => updateParam('week', parseInt(e.target.value))}
-              placeholder="输入周数 (1-52)"
-              min="1"
-              max="52"
-            />
-          </div>
-        );
-
-      case QueryType.MOVIES_BY_TITLE:
-        return (
-          <div>
-            <label>电影名称:</label>
-            <input
-              type="text"
-              value={params.movie_title || ''}
-              onChange={(e) => updateParam('movie_title', e.target.value)}
-              placeholder="输入电影名称"
-            />
-          </div>
-        );
-
-      case QueryType.MOVIES_BY_DIRECTOR:
-        return (
-          <div>
-            <label>导演:</label>
-            <input
-              type="text"
-              value={params.director || ''}
-              onChange={(e) => updateParam('director', e.target.value)}
-              placeholder="输入导演姓名"
-            />
-          </div>
-        );
-
-      case QueryType.MOVIES_BY_ACTOR_STARRING:
-      case QueryType.MOVIES_BY_ACTOR_PARTICIPATED:
-        return (
-          <div>
-            <label>演员:</label>
-            <input
-              type="text"
-              value={params.actor || ''}
-              onChange={(e) => updateParam('actor', e.target.value)}
-              placeholder="输入演员姓名"
-            />
+            {createInput('电影名称', 'movie_title', 'text', '可选')}
+            {createInput('电影类别', 'genre', 'text', '可选')}
           </div>
         );
 
       case QueryType.ACTOR_COLLABORATIONS:
-        return (
-          <div>
-            <label>最小合作次数:</label>
-            <input
-              type="number"
-              value={params.min_collaborations || 2}
-              onChange={(e) => updateParam('min_collaborations', parseInt(e.target.value))}
-              min="1"
-              max="10"
-            />
-          </div>
-        );
+        return createInput('最小合作次数', 'min_collaborations', 'number', '例如: 2', 1, 10);
 
       case QueryType.DIRECTOR_ACTOR_COLLABORATIONS:
-        return (
-          <div>
-            <label>导演:</label>
-            <input
-              type="text"
-              value={params.director || ''}
-              onChange={(e) => updateParam('director', e.target.value)}
-              placeholder="输入导演姓名"
-            />
-          </div>
-        );
+        return createInput('导演', 'director', 'text', '输入导演姓名');
 
       case QueryType.POPULAR_ACTOR_COMBINATIONS:
-        return (
-          <div>
-            <label>电影类别:</label>
-            <input
-              type="text"
-              value={params.genre || ''}
-              onChange={(e) => updateParam('genre', e.target.value)}
-              placeholder="输入电影类别"
-            />
-          </div>
-        );
-
-      case QueryType.MOVIES_BY_GENRE:
-        return (
-          <div>
-            <label>电影类别:</label>
-            <input
-              type="text"
-              value={params.genre || ''}
-              onChange={(e) => updateParam('genre', e.target.value)}
-              placeholder="输入电影类别"
-            />
-          </div>
-        );
+        return createInput('电影类别', 'genre', 'text', '输入电影类别');
 
       case QueryType.HIGH_RATED_MOVIES:
         return (
           <div>
-            <label>最低评分:</label>
-            <input
-              type="number"
-              value={params.min_score || 8.0}
-              onChange={(e) => updateParam('min_score', parseFloat(e.target.value))}
-              step="0.1"
-              min="0"
-              max="10"
-            />
-            <label>最少评价数:</label>
-            <input
-              type="number"
-              value={params.min_reviews || 1000}
-              onChange={(e) => updateParam('min_reviews', parseInt(e.target.value))}
-              min="0"
-            />
+            {createInput('最低评分', 'min_score', 'number', '例如: 8.0', 0, 10)}
+            {createInput('最少评价数', 'min_reviews', 'number', '例如: 1000', 0)}
           </div>
         );
 
       case QueryType.COMBINED_QUERY:
         return (
           <div>
-            <label>年份:</label>
-            <input
-              type="number"
-              value={params.year || ''}
-              onChange={(e) => updateParam('year', parseInt(e.target.value))}
-              placeholder="可选"
-            />
-            <label>导演:</label>
-            <input
-              type="text"
-              value={params.director || ''}
-              onChange={(e) => updateParam('director', e.target.value)}
-              placeholder="可选"
-            />
-            <label>演员:</label>
-            <input
-              type="text"
-              value={params.actor || ''}
-              onChange={(e) => updateParam('actor', e.target.value)}
-              placeholder="可选"
-            />
-            <label>类别:</label>
-            <input
-              type="text"
-              value={params.genre || ''}
-              onChange={(e) => updateParam('genre', e.target.value)}
-              placeholder="可选"
-            />
+            {createInput('年份', 'year', 'number', '可选')}
+            {createInput('导演', 'director', 'text', '可选')}
+                        {createInput('主演', 'starring_actor', 'text', '可选')}
+            {createInput('参演', 'participating_actor', 'text', '可选')}
+            {createInput('类别', 'genre', 'text', '可选')}
           </div>
         );
 
@@ -274,18 +124,35 @@ const QueryForm: React.FC<QueryFormProps> = ({ onSubmit, loading = false }) => {
   };
 
   return (
-    <div style={{
-      padding: '2rem',
-      backgroundColor: '#f5f5f5',
-      borderRadius: '8px',
-      marginBottom: '2rem'
-    }}>
-      <h2>电影数据查询</h2>
+    <div style={{ padding: '2rem' }}>
+      <h2 style={{ textAlign: 'center', color: '#1f2937', marginBottom: '1.5rem', fontSize: '24px', fontWeight: 'bold' }}>电影数据查询</h2>
       <form onSubmit={handleSubmit}>
         <QueryTypeSelector
           selectedType={queryType}
           onTypeChange={setQueryType}
         />
+
+        <div style={{ marginBottom: '1.5rem' }}>
+          <h3 style={{ color: '#4b5563', fontSize: '16px', marginBottom: '8px' }}>选择数据源</h3>
+          <select
+            value={database}
+            onChange={(e) => onDatabaseChange(e.target.value)}
+            style={{
+              width: '100%',
+              padding: '10px',
+              borderRadius: '6px',
+              border: '1px solid #d1d5db',
+              backgroundColor: 'white',
+              fontSize: '16px',
+              transition: 'border-color 0.2s, box-shadow 0.2s',
+              cursor: 'pointer'
+            }}
+          >
+            <option value="hive">Hive</option>
+            <option value="opengauss">OpenGauss</option>
+            <option value="neo4j">Neo4j</option>
+          </select>
+        </div>
 
         <div style={{ marginBottom: '1.5rem' }}>
           {renderParameterInputs()}
@@ -295,13 +162,18 @@ const QueryForm: React.FC<QueryFormProps> = ({ onSubmit, loading = false }) => {
           type="submit"
           disabled={loading}
           style={{
-            padding: '10px 20px',
-            backgroundColor: loading ? '#d9d9d9' : '#1890ff',
+            width: '100%',
+            padding: '12px 20px',
+            fontSize: '16px',
+            fontWeight: 'bold',
             color: 'white',
             border: 'none',
-            borderRadius: '4px',
+            borderRadius: '6px',
             cursor: loading ? 'not-allowed' : 'pointer',
-            fontSize: '16px'
+            background: loading ? '#9ca3af' : 'linear-gradient(90deg, #3b82f6 0%, #8b5cf6 100%)',
+            boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
+            transition: 'transform 0.2s, box-shadow 0.2s',
+            opacity: loading ? 0.7 : 1
           }}
         >
           {loading ? '查询中...' : '执行查询'}

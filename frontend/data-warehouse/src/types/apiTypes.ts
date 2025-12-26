@@ -17,32 +17,27 @@ export enum DatabaseType {
 
 // Query Types
 export enum QueryType {
-  MOVIES_BY_YEAR = 'movies_by_year',
-  MOVIES_BY_MONTH = 'movies_by_month',
-  MOVIES_BY_QUARTER = 'movies_by_quarter',
-  MOVIES_BY_WEEK = 'movies_by_week',
-  MOVIES_BY_TITLE = 'movies_by_title',
-  MOVIES_BY_DIRECTOR = 'movies_by_director',
-  MOVIES_BY_ACTOR_STARRING = 'movies_by_actor_starring',
-  MOVIES_BY_ACTOR_PARTICIPATED = 'movies_by_actor_participated',
+  MOVIES_BY_TIME = 'movies_by_time',
+  MOVIES_BY_PERSON = 'movies_by_person',
+  MOVIES_BY_PROPERTY = 'movies_by_property',
   ACTOR_COLLABORATIONS = 'actor_collaborations',
   DIRECTOR_ACTOR_COLLABORATIONS = 'director_actor_collaborations',
   POPULAR_ACTOR_COMBINATIONS = 'popular_actor_combinations',
-  MOVIES_BY_GENRE = 'movies_by_genre',
   HIGH_RATED_MOVIES = 'high_rated_movies',
   COMBINED_QUERY = 'combined_query'
 }
 
 // Query Parameters
 export interface QueryParams {
+  database?: string;
   year?: number;
   month?: number;
   quarter?: number;
   week?: number;
   movie_title?: string;
   director?: string;
-  actor?: string;
-  role_type?: 'starring' | 'participated';
+  starring_actor?: string;
+  participating_actor?: string;
   genre?: string;
   min_score?: number;
   min_reviews?: number;
