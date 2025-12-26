@@ -1,6 +1,9 @@
 version: "3.8"
 
 services:
+  # =====================
+  # Hadoop + Spark
+  # =====================
   hadoop-spark:
     build: .
     image: hdfs-spark:latest
@@ -10,12 +13,12 @@ services:
       - HDFS_NAMENODE=true
       - HDFS_DATANODE=true
       - SPARK_MODE=master
-      - HADOOP_HEAPSIZE=256
-      - HADOOP_NAMENODE_HEAPSIZE=256
-      - HADOOP_DATANODE_HEAPSIZE=256
-      - HIVE_HEAPSIZE=256
-      - SPARK_DRIVER_MEMORY=128m
-      - SPARK_EXECUTOR_MEMORY=128m
+      - HADOOP_HEAPSIZE=512
+      - HADOOP_NAMENODE_HEAPSIZE=512
+      - HADOOP_DATANODE_HEAPSIZE=512
+      - HADOOP_SECONDARYNAMENODE_HEAPSIZE=256
+      - SPARK_DRIVER_MEMORY=512m
+      - SPARK_EXECUTOR_MEMORY=512m
       - HDFS_NAMENODE_USER=root
       - HDFS_DATANODE_USER=root
       - HDFS_SECONDARYNAMENODE_USER=root
@@ -28,26 +31,10 @@ services:
       - "7077:7077"  # Spark Master
     networks:
       - bigdata
-    mem_reservation: 1g
 
-  opengauss:
-    image: opengauss/opengauss-server:latest
-    container_name: opengauss
-    environment:
-      - GS_PASSWORD=GaussDB@2025
-    ports:
-      - "5432:5432"
-    volumes:
-      - ./opengauss/data:/var/lib/opengauss
-      - ./opengauss/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
-    healthcheck:
-      test: ["CMD", "pg_isready", "-U", "gaussdb"]
-      interval: 10s
-      retries: 10
-    mem_reservation: 512m
-    networks:
-      - bigdata
-
+  # =====================
+  # Hive
+  # =====================
   hive-server:
     image: apache/hive:4.0.0
     container_name: hive-server
@@ -64,13 +51,38 @@ services:
       - hadoop-spark
     networks:
       - bigdata
-    mem_reservation: 512m
 
+  # =====================
+  # OpenGauss
+  # =====================
+  opengauss:
+    image: opengauss/opengauss-server:latest
+    container_name: opengauss
+    environment:
+      - GS_PASSWORD=GaussDB@2025
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./opengauss/data:/var/lib/opengauss
+      - ./opengauss/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "gaussdb"]
+      interval: 10s
+      retries: 10
+    networks:
+      - bigdata
+
+  # =====================
+  # Neo4j
+  # =====================
   neo4j:
     image: neo4j:latest
     container_name: neo4j
     environment:
       - NEO4J_AUTH=neo4j/neo4j_password
+      - NEO4J_dbms_memory_heap_initial__size=512m
+      - NEO4J_dbms_memory_heap_max__size=1g
+      - NEO4J_dbms_memory_pagecache_size=256m
     ports:
       - "7474:7474"
       - "7687:7687"
@@ -80,7 +92,6 @@ services:
       - ./neo4j/logs:/logs
     networks:
       - bigdata
-    mem_reservation: 512m
 
 networks:
   bigdata:
