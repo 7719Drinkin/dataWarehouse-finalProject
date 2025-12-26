@@ -19,7 +19,6 @@ LOCATION '/warehouse/clean/reviews_amazon/';
 -- ====================================
 -- Staging表(必须创建!) - 用于接收PyHive上传的数据
 -- ====================================
-DROP TABLE IF EXISTS reviews_staging;
 CREATE TABLE reviews_staging (
   asin STRING,
   user_id STRING,
@@ -49,3 +48,26 @@ CREATE EXTERNAL TABLE IF NOT EXISTS movies_meta (
 )
 STORED AS PARQUET
 LOCATION '/warehouse/clean/movies_meta/';
+
+CREATE EXTERNAL TABLE IF NOT EXISTS movies_meta_dw (
+  movie_id STRING,
+  title STRING,
+  release_date DATE,
+  genres ARRAY<STRING>,
+  director ARRAY<STRING>,
+  actors ARRAY<STRING>,
+  starring ARRAY<STRING>,
+  versions ARRAY<STRING>,
+  source_files ARRAY<STRING>,
+  release_year INT,    -- 时间维度字段（用于统计）
+  release_quarter INT,
+  release_month INT,
+  release_week INT
+)
+PARTITIONED BY (
+  p_year INT,
+  p_month INT
+)
+STORED AS PARQUET
+LOCATION '/warehouse/clean/movies_meta_dw/';
+
