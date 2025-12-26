@@ -7,6 +7,8 @@ export interface Movie {
   release_date: string;
   director: string;
   actors: string[];
+  starring?: string[]; // 主演
+  versions?: string[]; // 版本
   genres: string[];
   rating: number;
   review_count: number;

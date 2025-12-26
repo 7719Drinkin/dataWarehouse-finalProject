@@ -18,6 +18,7 @@ export const API_CONFIG = {
     ACTOR_COLLABORATIONS: '/api/query/actor-collaborations',
     DIRECTOR_ACTOR_COLLABORATIONS: '/api/query/director-actor-collaborations',
     MOVIES_BY_COMBINED_QUERY: '/api/query/movies-by-combined-query',
+    REVIEWS_BY_MOVIE: '/api/query/reviews-by-movie', // Endpoint to fetch reviews for a specific movie
   },
   TIMEOUT: 30000 // 30秒超时
 };

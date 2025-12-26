@@ -4,7 +4,7 @@ import type {
   DatabaseResults,
   QueryResultData,
 } from '../types/api';
-import { DatabaseType } from '../types/api';
+import { DataSource } from '../types/api';
 import { QueryType } from '../types/query';
 import type { QueryParams } from '../types/query';
 
@@ -48,26 +48,26 @@ export class BackendAdapter {
 
     // 适配数据库结果
     const adaptedResults: DatabaseResults = {
-      [DatabaseType.OPENGAUSS]: { database: DatabaseType.OPENGAUSS, success: false, execution_time: 0, result: [], record_count: 0, error: 'No response' },
-      [DatabaseType.HIVE]: { database: DatabaseType.HIVE, success: false, execution_time: 0, result: [], record_count: 0, error: 'No response' },
-      [DatabaseType.NEO4J]: { database: DatabaseType.NEO4J, success: false, execution_time: 0, result: [], record_count: 0, error: 'No response' },
+      [DataSource.OPENGAUSS]: { database: DataSource.OPENGAUSS, success: false, execution_time: 0, result: [], record_count: 0, error: 'No response' },
+      [DataSource.HIVE]: { database: DataSource.HIVE, success: false, execution_time: 0, result: [], record_count: 0, error: 'No response' },
+      [DataSource.NEO4J]: { database: DataSource.NEO4J, success: false, execution_time: 0, result: [], record_count: 0, error: 'No response' },
     };
 
     if (backendResponse.results) {
       // 处理后端返回的数据库结果
       Object.entries(backendResponse.results).forEach(([dbKey, dbResult]: [string, BackendDatabaseResult]) => {
-        let databaseType: DatabaseType;
+        let databaseType: DataSource;
 
         // 映射数据库键名
         switch (dbKey.toLowerCase()) {
           case 'opengauss':
-            databaseType = DatabaseType.OPENGAUSS;
+            databaseType = DataSource.OPENGAUSS;
             break;
           case 'hive':
-            databaseType = DatabaseType.HIVE;
+            databaseType = DataSource.HIVE;
             break;
           case 'neo4j':
-            databaseType = DatabaseType.NEO4J;
+            databaseType = DataSource.NEO4J;
             break;
           default:
             return; // 跳过未知数据库

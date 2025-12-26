@@ -23,8 +23,8 @@ const QueryForm: React.FC<QueryFormProps> = ({
     starring_actor: '',
     participating_actor: '',
     genre: '',
-    min_score: 8.0,
-    min_reviews: 1000,
+    min_score: 6,
+    min_reviews: 10,
     limit: 10,
     min_collaborations: 2
   });

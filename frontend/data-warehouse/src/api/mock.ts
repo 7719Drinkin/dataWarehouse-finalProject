@@ -1,11 +1,10 @@
-// src/api/index.ts
 import type { Movie, Review } from '../types/data';
 import type { QueryCondition, Pagination, ApiResponse, DataSource } from '../types/api';
 
 // 模拟电影数据
-const generateMockMovies = (count: number): Movie[] => {
+export const generateMockMovies = (count: number): Movie[] => {
   return Array.from({ length: count }, (_, i) => ({
-    id: `m_${i + 1}`,            // 改成 id
+    id: `m_${i + 1}`,
     title: `Movie Title ${i + 1}`,
     release_date: `${2020 - i}-01-01`,
     genres: ['Action', 'Adventure', 'Sci-Fi'].slice(i % 3),
@@ -13,13 +12,13 @@ const generateMockMovies = (count: number): Movie[] => {
     actors: [`Actor ${i + 1}`, `Actor ${i + 2}`],
     starring: [`Actor ${i + 1}`],
     versions: ['IMAX', '3D'].slice(i % 2),
-    rating: Math.round(Math.random() * 5 * 10) / 10, // 0~5 星
+    rating: Math.round(Math.random() * 5 * 10) / 10,
     review_count: Math.floor(Math.random() * 1000)
   }));
 };
 
 // 模拟评论数据
-const generateMockReviews = (count: number, movieId: string): Review[] => {
+export const generateMockReviews = (count: number, movieId: string): Review[] => {
   return Array.from({ length: count }, (_, i) => ({
     asin: `asin_${movieId}_${i}`,
     movie_id: movieId,
@@ -38,15 +37,13 @@ const allReviews = allMovies.reduce((acc, movie) => {
   return acc.concat(generateMockReviews(100, movie.id));
 }, [] as Review[]);
 
-
-export async function fetchMovies(
+export async function mockFetchMovies(
   conditions: QueryCondition<Movie>,
   pagination: Pagination,
   source: DataSource
 ): Promise<ApiResponse<Movie[]>> {
-  console.log('Fetching movies from:', source, 'with conditions:', conditions, 'and pagination:', pagination);
+  console.log('Fetching mock movies from:', source, 'with conditions:', conditions, 'and pagination:', pagination);
   
-  // 模拟网络延迟
   await new Promise(resolve => setTimeout(resolve, 500 + Math.random() * 500));
 
   const start = (pagination.page - 1) * pagination.pageSize;
@@ -58,18 +55,17 @@ export async function fetchMovies(
     timestamp: new Date().toISOString(),
     total: allMovies.length,
     data,
-    executionTime: Math.random() * 100 + 50, // 模拟执行时间
+    executionTime: Math.random() * 100 + 50,
   };
 }
 
-export async function fetchReviews(
+export async function mockFetchReviews(
   conditions: QueryCondition<Review>,
   pagination: Pagination,
   source: DataSource
 ): Promise<ApiResponse<Review[]>> {
-  console.log('Fetching reviews from:', source, 'with conditions:', conditions, 'and pagination:', pagination);
+  console.log('Fetching mock reviews from:', source, 'with conditions:', conditions, 'and pagination:', pagination);
   
-  // 模拟网络延迟
   await new Promise(resolve => setTimeout(resolve, 800 + Math.random() * 800));
 
   const movieId = conditions.filters.movie_id;
@@ -84,6 +80,6 @@ export async function fetchReviews(
     timestamp: new Date().toISOString(),
     total: filteredReviews.length,
     data,
-    executionTime: Math.random() * 200 + 100, // 模拟执行时间
+    executionTime: Math.random() * 200 + 100,
   };
 }

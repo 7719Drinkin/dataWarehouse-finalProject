@@ -8,6 +8,8 @@ import type {
 } from '../types/api';
 import { QueryType } from '../types/query';
 import type { QueryParams } from '../types/query';
+import type { Review } from '../types/data';
+import type { Pagination, QueryCondition, DataSource } from '../types/api';
 
 // 参数映射：前端参数名 -> 后端参数名
 const PARAM_MAPPING: Record<string, string> = {
@@ -105,5 +107,51 @@ export class QueryService {
 
   static async queryDirectorActorCollaborations(director: string): Promise<ApiResponse<QueryResult>> {
     return this.executeQuery(QueryType.DIRECTOR_ACTOR_COLLABORATIONS, { director });
+  }
+
+  // 获取指定电影的评论
+  static async fetchReviews(
+    conditions: QueryCondition<Review>,
+    pagination: Pagination,
+    source: DataSource
+  ): Promise<ApiResponse<Review[]>> {
+    try {
+      const params = {
+        ...conditions.filters,
+        page: pagination.page,
+        pageSize: pagination.pageSize,
+        dataSource: source,
+      };
+
+      // 假设后端直接返回 { total: number, data: Review[] } 格式
+      const response = await httpClient.get<{ total: number; data: Review[] }>(
+        API_CONFIG.ENDPOINTS.REVIEWS_BY_MOVIE,
+        params
+      );
+
+      if (!response.success || !response.data) {
+        return {
+          success: false,
+          data: [],
+          message: response.error || 'Failed to fetch reviews',
+          timestamp: new Date().toISOString(),
+        };
+      }
+
+      return {
+        success: true,
+        data: response.data.data,
+        total: response.data.total,
+        message: 'Reviews fetched successfully',
+        timestamp: new Date().toISOString(),
+      };
+    } catch (error) {
+      return {
+        success: false,
+        data: [],
+        message: error instanceof Error ? error.message : 'Unknown error occurred',
+        timestamp: new Date().toISOString(),
+      };
+    }
   }
 }

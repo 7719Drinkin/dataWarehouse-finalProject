@@ -16,15 +16,6 @@ export interface ApiResponse<T> {
   executionTime?: number; // in milliseconds
 }
 
-/**
- * Enum for different database types.
- */
-export enum DatabaseType {
-  OPENGAUSS = 'OpenGauss',
-  HIVE = 'Hive',
-  NEO4J = 'Neo4j'
-}
-
 // A union type for all possible result data structures
 export type QueryResultData = Movie[] | ActorCollaboration[] | DirectorActorCollaboration[];
 
@@ -32,7 +23,7 @@ export type QueryResultData = Movie[] | ActorCollaboration[] | DirectorActorColl
  * Represents the result from a single database.
  */
 export interface DatabaseResult {
-  database: DatabaseType;
+  database: DataSource;
   success: boolean;
   execution_time: number; // in milliseconds
   result: QueryResultData;
@@ -43,7 +34,7 @@ export interface DatabaseResult {
 /**
  * Represents the results from all databases.
  */
-export type DatabaseResults = Record<DatabaseType, DatabaseResult>;
+export type DatabaseResults = Record<DataSource, DatabaseResult>;
 
 /**
  * Represents the complete query result.

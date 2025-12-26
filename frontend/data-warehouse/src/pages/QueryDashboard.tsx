@@ -1,21 +1,21 @@
 import React, { useState } from 'react';
 import QueryForm from '../components/query/QueryForm';
-import ResultTable from '../components/result/ResultTable';
+import QueryResultDisplay from '../components/result/QueryResultDisplay';
 import ChartRenderer from '../components/chart/ChartRenderer';
 import LoadingIndicator from '../components/common/LoadingIndicator';
 import ErrorMessage from '../components/common/ErrorMessage';
 import WelcomePlaceholder from '../components/common/WelcomePlaceholder';
 import { QueryService } from '../api/queryService';
 import type { QueryType, QueryParams } from '../types/query';
-import type { QueryResult } from '../types/api';
+import type { QueryResult, DataSource } from '../types/api';
 import type {  ChartConfig} from '../types/data';
 
 const QueryDashboard: React.FC = () => {
   const [queryResult, setQueryResult] = useState<QueryResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-    const [chartConfig, setChartConfig] = useState<ChartConfig | null>(null);
-    const [database, setDatabase] = useState('hive');
+  const [chartConfig, setChartConfig] = useState<ChartConfig | null>(null);
+  const [database, setDatabase] = useState('hive');
 
   const handleQuery = async (queryType: QueryType, params: QueryParams) => {
     setLoading(true);
@@ -161,8 +161,8 @@ const QueryDashboard: React.FC = () => {
                   </p>
                 </div>
 
-                {/* Results Table */}
-                <ResultTable results={queryResult.results} />
+                {/* Results Display */}
+                <QueryResultDisplay results={queryResult.results} dataSource={database as DataSource} />
 
                 {/* Chart */}
                 {chartConfig && (
