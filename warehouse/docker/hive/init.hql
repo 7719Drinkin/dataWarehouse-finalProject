@@ -1,8 +1,13 @@
+SET hive.execution.engine=mr;
+SET hive.vectorized.execution.enabled=false;
+SET hive.auto.convert.join=false;
+SET hive.stats.autogather=false;
+
 CREATE DATABASE IF NOT EXISTS movie_dw;
 USE movie_dw;
 
 -- 电影评论表（外部表，按年月分区）
-CREATE EXTERNAL TABLE reviews_clean_amazon (
+CREATE EXTERNAL TABLE IF NOT EXISTS reviews_clean_amazon (
   asin STRING COMMENT 'product/productId',
   user_id STRING COMMENT 'review/userId',
   profile_name STRING COMMENT 'review/profileName',
@@ -19,13 +24,13 @@ LOCATION '/warehouse/clean/reviews_amazon/';
 -- ====================================
 -- Staging表(必须创建!) - 用于接收PyHive上传的数据
 -- ====================================
-CREATE TABLE reviews_csv_ext (
-  productId STRING,
-  userid STRING,
-  profilename STRING,
+CREATE EXTERNAL TABLE IF NOT EXISTS reviews_csv_ext (
+  product_id STRING,
+  user_id STRING,
+  profile_name STRING,
   helpfulness STRING,
   score DOUBLE,
-  time BIGINT,
+  review_time BIGINT,
   summary STRING,
   text STRING
 )
@@ -36,7 +41,7 @@ STORED AS TEXTFILE;        -- staging表用TEXTFILE,方便插入
 
 -- 电影元数据表
 CREATE EXTERNAL TABLE IF NOT EXISTS movies_meta (
-  movie_id STRING,
+  asin STRING,
   title STRING,
   release_date DATE,
   genres ARRAY<STRING>,
@@ -50,7 +55,7 @@ STORED AS PARQUET
 LOCATION '/warehouse/clean/movies_meta/';
 
 CREATE EXTERNAL TABLE IF NOT EXISTS movies_meta_dw (
-  movie_id STRING,
+  asin STRING,
   title STRING,
   release_date DATE,
   genres ARRAY<STRING>,
