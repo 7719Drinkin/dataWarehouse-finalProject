@@ -1,5 +1,6 @@
 // src/api/index.ts
-import type { Movie, Review, QueryCondition, Pagination, ApiResponse, DataSource } from '../types';
+import type { Movie, Review } from '../types/data';
+import type { QueryCondition, Pagination, ApiResponse, DataSource } from '../types/api';
 
 // 模拟电影数据
 const generateMockMovies = (count: number): Movie[] => {
@@ -31,8 +32,8 @@ const generateMockReviews = (count: number, movieId: string): Review[] => {
 };
 
 const allMovies = generateMockMovies(100);
-const allReviews = allMovies.reduce((acc, movie) => {
-  return acc.concat(generateMockReviews(100, movie.movie_id));
+const allReviews = allMovies.reduce((acc, review) => {
+  return acc.concat(generateMockReviews(100, review.movie_id));
 }, [] as Review[]);
 
 
@@ -40,7 +41,7 @@ export async function fetchMovies(
   conditions: QueryCondition<Movie>,
   pagination: Pagination,
   source: DataSource
-): Promise<ApiResponse<Movie>> {
+): Promise<ApiResponse<Movie[]>> {
   console.log('Fetching movies from:', source, 'with conditions:', conditions, 'and pagination:', pagination);
   
   // 模拟网络延迟
@@ -51,6 +52,8 @@ export async function fetchMovies(
   const data = allMovies.slice(start, end);
 
   return {
+    success: true,
+    timestamp: new Date().toISOString(),
     total: allMovies.length,
     data,
     executionTime: Math.random() * 100 + 50, // 模拟执行时间
@@ -61,7 +64,7 @@ export async function fetchReviews(
   conditions: QueryCondition<Review>,
   pagination: Pagination,
   source: DataSource
-): Promise<ApiResponse<Review>> {
+): Promise<ApiResponse<Review[]>> {
   console.log('Fetching reviews from:', source, 'with conditions:', conditions, 'and pagination:', pagination);
   
   // 模拟网络延迟
@@ -75,6 +78,8 @@ export async function fetchReviews(
   const data = filteredReviews.slice(start, end);
 
   return {
+    success: true,
+    timestamp: new Date().toISOString(),
     total: filteredReviews.length,
     data,
     executionTime: Math.random() * 200 + 100, // 模拟执行时间
