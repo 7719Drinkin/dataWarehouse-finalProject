@@ -1,3 +1,5 @@
+version: "3.8"
+
 services:
   hadoop-spark:
     build: .
@@ -8,23 +10,27 @@ services:
       - HDFS_NAMENODE=true
       - HDFS_DATANODE=true
       - SPARK_MODE=master
+      - HADOOP_HEAPSIZE=512
+      - HADOOP_NAMENODE_HEAPSIZE=512
+      - HADOOP_DATANODE_HEAPSIZE=512
+      - HADOOP_SECONDARYNAMENODE_HEAPSIZE=256
+      - SPARK_DRIVER_MEMORY=512m
+      - SPARK_EXECUTOR_MEMORY=512m
+      - HDFS_NAMENODE_USER=root
+      - HDFS_DATANODE_USER=root
+      - HDFS_SECONDARYNAMENODE_USER=root
     volumes:
       - ./hdfs/namenode:/hadoop/dfs/name
       - ./hdfs/datanode:/hadoop/dfs/data
     ports:
-      - "9870:9870"
-      - "8081:8080"
-      - "7077:7077"
+      - "9870:9870"  # HDFS Web UI
+      - "8081:8080"  # Spark Web UI
+      - "7077:7077"  # Spark Master
     networks:
       - bigdata
-    deploy:
-      resources:
-        limits:
-          cpus: '1'        # 最多 1 核
-          memory: 1.5G     # 最多 1.5GB
-        reservations:
-          cpus: '0.5'
-          memory: 1G       # 保留 1GB
+    mem_limit: 1.5g
+    mem_reservation: 1g
+    cpus: 1
 
   opengauss:
     image: opengauss/opengauss-server:latest
@@ -40,14 +46,19 @@ services:
       test: ["CMD", "pg_isready", "-U", "gaussdb"]
       interval: 10s
       retries: 10
+    mem_limit: 1g
+    mem_reservation: 512m
+    cpus: 0.5
+    networks:
+      - bigdata
 
   hive-server:
     image: apache/hive:4.0.0
     container_name: hive-server
     environment:
       - SERVICE_NAME=hiveserver2
-      - HADOOP_HEAPSIZE=2048
-      - HIVE_HEAPSIZE=2048
+      - HADOOP_HEAPSIZE=512
+      - HIVE_HEAPSIZE=512
     ports:
       - "10000:10000"
     volumes:
@@ -57,15 +68,10 @@ services:
       - hadoop-spark
     networks:
       - bigdata
-    # 资源限制配置
-    deploy:
-      resources:
-        limits:
-          cpus: '1.2'        # 最多使用1.2个CPU核心
-          memory: 2G         # 最多使用2GB内存
-        reservations:
-          cpus: '0.5'        # 预留0.5个CPU核心
-          memory: 2G         # 预留2GB内存
+    command: bash -c "/opt/hive/bin/hiveserver2"
+    mem_limit: 1g
+    mem_reservation: 512m
+    cpus: 0.5
 
   neo4j:
     image: neo4j:latest
@@ -81,6 +87,9 @@ services:
       - ./neo4j/logs:/logs
     networks:
       - bigdata
+    mem_limit: 1g
+    mem_reservation: 512m
+    cpus: 0.5
 
 networks:
   bigdata:
