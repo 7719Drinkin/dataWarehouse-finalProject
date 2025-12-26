@@ -28,9 +28,7 @@ services:
       - "7077:7077"  # Spark Master
     networks:
       - bigdata
-    mem_limit: 1.5g
     mem_reservation: 1g
-    cpus: 1
 
   opengauss:
     image: opengauss/opengauss-server:latest
@@ -46,9 +44,7 @@ services:
       test: ["CMD", "pg_isready", "-U", "gaussdb"]
       interval: 10s
       retries: 10
-    mem_limit: 1g
     mem_reservation: 512m
-    cpus: 0.5
     networks:
       - bigdata
 
@@ -68,9 +64,7 @@ services:
       - hadoop-spark
     networks:
       - bigdata
-    mem_limit: 1g
     mem_reservation: 512m
-    cpus: 0.5
 
   neo4j:
     image: neo4j:latest
@@ -86,9 +80,7 @@ services:
       - ./neo4j/logs:/logs
     networks:
       - bigdata
-    mem_limit: 1g
     mem_reservation: 512m
-    cpus: 0.5
 
 networks:
   bigdata:
