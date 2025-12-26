@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import type { Review } from '../../types/data';
 import type { DataSource } from '../../types/api';
-import { QueryService } from '../../api/queryService';
+import { mockFetchReviews } from '../../api/mock'; // 从 mock.ts 导入
 import ReviewItem from './ReviewItem';
 import LoadingIndicator from '../common/LoadingIndicator';
 import ErrorMessage from '../common/ErrorMessage';
@@ -22,7 +22,8 @@ const ReviewList: React.FC<ReviewListProps> = ({ movieId, dataSource }) => {
     setError(null);
 
     try {
-      const response = await QueryService.fetchReviews(
+      // 将真实 API 调用替换为模拟数据调用
+      const response = await mockFetchReviews(
         { filters: { movie_id: movieId } },
         { page, pageSize: pagination.pageSize },
         dataSource
@@ -100,4 +101,3 @@ const ReviewList: React.FC<ReviewListProps> = ({ movieId, dataSource }) => {
 };
 
 export default ReviewList;
-

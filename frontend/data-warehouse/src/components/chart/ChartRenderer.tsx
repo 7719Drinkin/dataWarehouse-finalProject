@@ -59,7 +59,6 @@ const ChartRenderer: React.FC<ChartRendererProps> = ({ config, title }) => {
       if (labels[index]) {
         ctx.save();
         ctx.translate(x + barWidth / 2, height - padding + 15);
-        ctx.rotate(-Math.PI / 4);
         ctx.fillText(labels[index], 0, 0);
         ctx.restore();
       }

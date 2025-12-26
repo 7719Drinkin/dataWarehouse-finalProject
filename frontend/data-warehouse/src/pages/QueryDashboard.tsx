@@ -6,6 +6,7 @@ import LoadingIndicator from '../components/common/LoadingIndicator';
 import ErrorMessage from '../components/common/ErrorMessage';
 import WelcomePlaceholder from '../components/common/WelcomePlaceholder';
 import { QueryService } from '../api/queryService';
+import { mockQueryResult } from '../api/mock'; // 导入模拟数据
 import type { QueryType, QueryParams } from '../types/query';
 import type { QueryResult, DataSource } from '../types/api';
 import type {  ChartConfig} from '../types/data';
@@ -38,6 +39,13 @@ const QueryDashboard: React.FC = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  // 新增：加载模拟数据的处理函数
+  const handleLoadMockData = () => {
+    setError(null);
+    setQueryResult(mockQueryResult);
+    generateChart(mockQueryResult);
   };
 
   const generateChart = (result: QueryResult) => {
@@ -101,7 +109,6 @@ const QueryDashboard: React.FC = () => {
 
       <div style={{ flex: 1, display: 'flex', padding: '20px', gap: '20px', minHeight: 0 }}>
           {/* Left Panel: Query Form */}
-          {/* Left Panel: Query Form */}
           <div style={{
             flex: '0 0 400px',
             backgroundColor: 'rgba(255, 255, 255, 0.7)',
@@ -109,7 +116,8 @@ const QueryDashboard: React.FC = () => {
             borderRadius: '8px',
             boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
             overflowY: 'auto',
-            border: '1px solid rgba(255, 255, 255, 0.3)'
+            border: '1px solid rgba(255, 255, 255, 0.3)',
+            padding: '20px' // Added padding for inner content
           }}>
             <QueryForm
               onSubmit={handleQuery}
@@ -117,6 +125,25 @@ const QueryDashboard: React.FC = () => {
               database={database}
               onDatabaseChange={setDatabase}
             />
+            {/* 新增：加载模拟数据的按钮 */}
+            <button
+              onClick={handleLoadMockData}
+              style={{
+                width: '100%',
+                padding: '10px',
+                marginTop: '16px',
+                backgroundColor: '#722ed1',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                fontSize: '16px',
+                fontWeight: 'bold',
+                transition: 'background-color 0.3s',
+              }}
+            >
+              加载模拟数据
+            </button>
           </div>
 
           {/* Right Panel: Results */}
