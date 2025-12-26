@@ -1,79 +1,153 @@
 """
-Neo4j Cypher 查询语句集合
+Neo4j Cypher 查询语句集合（改进版）
 """
-
 class Neo4jQueries:
-    """Neo4j 数据库 Cypher 查询语句类"""
+    """Neo4j 数据库 Cypher 查询语句类，按数据分析维度整理"""
 
-    # 基础查询
-    MOVIES_BY_YEAR = """
-        MATCH (m:Movie) WHERE m.year = $year RETURN m
+    # ===========================
+    # 一、时间维度查询/统计
+    # ===========================
+
+    # 1. 按年份统计电影数量
+    MOVIES_COUNT_BY_YEAR = """
+        MATCH (m:Movie)
+        RETURN m.release_year AS year, COUNT(m) AS movie_count
+        ORDER BY year
     """
 
+    # 2. 按季度统计电影数量
+    MOVIES_COUNT_BY_QUARTER = """
+        MATCH (m:Movie)
+        RETURN m.release_year AS year, m.release_quarter AS quarter, COUNT(m) AS movie_count
+        ORDER BY year, quarter
+    """
+
+    # 3. 按月份统计电影数量
+    MOVIES_COUNT_BY_MONTH = """
+        MATCH (m:Movie)
+        RETURN m.release_year AS year, m.release_month AS month, COUNT(m) AS movie_count
+        ORDER BY year, month
+    """
+
+    # 4. 按周统计电影数量
+    MOVIES_COUNT_BY_WEEK = """
+        MATCH (m:Movie)
+        RETURN m.release_year AS year, m.release_week AS week, COUNT(m) AS movie_count
+        ORDER BY year, week
+    """
+
+    # 5. 某天新增电影数量
+    MOVIES_COUNT_BY_DAY = """
+        MATCH (m:Movie)
+        WHERE m.release_date = $date
+        RETURN COUNT(m) AS movie_count
+    """
+
+    # 用户评价数量统计
+    REVIEWS_COUNT_BY_YEAR = """
+        MATCH (r:Review)
+        RETURN r.review_year AS year, COUNT(r) AS review_count
+        ORDER BY year
+    """
+
+    REVIEWS_COUNT_BY_SCORE = """
+        MATCH (r:Review)
+        WHERE r.score >= $min_score
+        RETURN COUNT(r) AS review_count
+    """
+
+    MOVIES_REVIEWS_STATS_BY_TIME = """
+        MATCH (m:Movie)<-[:REVIEWS]-(r:Review)
+        WHERE m.release_date >= $start_date AND m.release_date <= $end_date
+        RETURN m.title AS movie, COUNT(r) AS review_count, AVG(r.score) AS avg_score
+    """
+
+    # ===========================
+    # 二、电影维度查询/统计
+    # ===========================
+
+    # 电影名称相关
+    MOVIES_VERSIONS_BY_TITLE = """
+        MATCH (m:Movie)
+        WHERE m.title = $title
+        RETURN m.versions AS versions
+    """
+
+    MOVIE_REVIEWS_BY_TITLE = """
+        MATCH (m:Movie)<-[:REVIEWS]-(r:Review)
+        WHERE m.title = $title
+        RETURN COUNT(r) AS review_count, AVG(r.score) AS avg_score
+    """
+
+    # 导演相关
     MOVIES_BY_DIRECTOR = """
-        MATCH (m:Movie)-[:DIRECTED_BY]->(d:Director) 
-        WHERE d.name CONTAINS $director 
+        MATCH (m:Movie)-[:DIRECTED_BY]->(d:Director)
+        WHERE d.name = $director
         RETURN m
     """
 
+    DIRECTOR_MOVIE_COUNT = """
+        MATCH (m:Movie)-[:DIRECTED_BY]->(d:Director)
+        WHERE d.name = $director
+        RETURN COUNT(m) AS movie_count
+    """
+
+    DIRECTOR_ACTOR_COLLABORATIONS = """
+        MATCH (d:Director)-[:DIRECTED_BY]->(m:Movie)<-[:ACTED_IN]-(a:Actor)
+        WHERE d.name = $director
+        RETURN a.name AS actor, COUNT(m) AS collaborations
+        ORDER BY collaborations DESC
+        LIMIT $limit
+    """
+
+    # 演员相关
     MOVIES_BY_ACTOR_STARRING = """
-        MATCH (m:Movie)-[:STARRING]->(a:Actor) 
-        WHERE a.name CONTAINS $actor 
+        MATCH (a:Actor)-[:STARRING]->(m:Movie)
+        WHERE a.id = $actor_id
         RETURN m
     """
 
     MOVIES_BY_ACTOR_PARTICIPATED = """
-        MATCH (m:Movie)-[:ACTED_IN]->(a:Actor) 
-        WHERE a.name CONTAINS $actor 
+        MATCH (a:Actor)-[:ACTED_IN]->(m:Movie)
+        WHERE a.id = $actor_id
         RETURN m
     """
 
+    # 类别相关
     MOVIES_BY_GENRE = """
-        MATCH (m:Movie)-[:HAS_GENRE]->(g:Genre) 
-        WHERE g.name CONTAINS $genre 
+        MATCH (m:Movie)-[:HAS_GENRE]->(g:Genre)
+        WHERE g.name = $genre
         RETURN m
     """
 
-    # 高级查询
+    # 多条件组合查询
+    MOVIES_BY_MULTI_CONDITION = """
+        MATCH (m:Movie)-[:DIRECTED_BY]->(d:Director)-[:HAS_GENRE]->(g:Genre)
+        WHERE d.name = $director AND g.name = $genre AND m.release_year = $year AND m.rating >= $min_score
+        RETURN m
+    """
+
+    # ===========================
+    # 三、用户评价相关
+    # ===========================
     HIGH_RATED_MOVIES = """
-        MATCH (m:Movie) 
-        WHERE m.rating >= $min_score AND m.reviews >= $min_reviews
-        RETURN m
-        ORDER BY m.rating DESC
+        MATCH (m:Movie)<-[:REVIEWS]-(r:Review)
+        WHERE r.score >= $min_score
+        WITH m, COUNT(r) AS review_count, AVG(r.score) AS avg_score
+        WHERE review_count >= $min_reviews
+        RETURN m, avg_score, review_count
+        ORDER BY avg_score DESC
     """
 
-    MOVIES_BY_TIME_RANGE = """
-        MATCH (m:Movie) 
-        WHERE m.date_added >= $start_date AND m.date_added <= $end_date
-        RETURN m
-        ORDER BY m.date_added DESC
+    REVIEWS_BY_KEYWORD = """
+        MATCH (r:Review)-[:REVIEWS]->(m:Movie)
+        WHERE r.comment CONTAINS $keyword
+        RETURN r, m
     """
 
-    MOVIES_BY_QUARTER = """
-        MATCH (m:Movie)
-        WHERE split(split(m.date_added, '-')[0], '.')[0] = $year
-        WITH m,
-             toInteger(split(m.date_added, '-')[1]) AS month
-        WITH m,
-             CASE 
-                 WHEN month >= 1 AND month <= 3 THEN 'Q1'
-                 WHEN month >= 4 AND month <= 6 THEN 'Q2'
-                 WHEN month >= 7 AND month <= 9 THEN 'Q3'
-                 ELSE 'Q4'
-             END AS quarter
-        RETURN quarter, COUNT(m) AS count
-        ORDER BY quarter
-    """
-
-    MOVIES_ADDED_TUESDAY = """
-        MATCH (m:Movie)
-        WHERE split(m.date_added, '-')[0] = $year
-        AND dayOfWeek(date(m.date_added)) = 3
-        RETURN m
-        ORDER BY m.date_added DESC
-    """
-
-    # 关系查询
+    # ===========================
+    # 四、演员-导演关系查询
+    # ===========================
     ACTOR_COLLABORATIONS = """
         MATCH (a1:Actor)-[:ACTED_IN]->(m:Movie)<-[:ACTED_IN]-(a2:Actor)
         WHERE a1.id < a2.id
@@ -94,13 +168,12 @@ class Neo4jQueries:
         LIMIT $limit
     """
 
-    # Neo4j 特有查询
-    POPULAR_ACTOR_COMBINATIONS = """
+    POPULAR_ACTOR_COMBINATIONS_BY_GENRE = """
         MATCH (g:Genre {name: $genre})<-[:HAS_GENRE]-(m:Movie)<-[:ACTED_IN]-(a1:Actor),
-              (m:Movie)<-[:ACTED_IN]-(a2:Actor)
+              (m)<-[:ACTED_IN]-(a2:Actor)
         WHERE a1.id < a2.id
         WITH a1, a2, COUNT(DISTINCT m) AS movies
-        ORDER BY movies DESC
         RETURN a1.name AS actor1, a2.name AS actor2, movies
-        LIMIT 20
+        ORDER BY movies DESC
+        LIMIT $limit
     """

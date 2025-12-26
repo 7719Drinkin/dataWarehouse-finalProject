@@ -5,93 +5,208 @@ OpenGauss SQL 查询语句集合
 class OpenGaussQueries:
     """OpenGauss 数据库 SQL 查询语句类"""
 
-    # 基础查询
+    # ===========================
+    # 时间维度查询/统计
+    # ===========================
+
+    # 按年份统计电影数量
     MOVIES_BY_YEAR = """
-        SELECT * FROM movies WHERE year = %s
+        SELECT release_year, COUNT(*) AS movie_count
+        FROM dim_movies
+        WHERE release_year = %s
+        GROUP BY release_year
+        ORDER BY release_year;
     """
 
-    MOVIES_BY_DIRECTOR = """
-        SELECT * FROM movies WHERE director LIKE %s
-    """
-
-    MOVIES_BY_ACTOR_STARRING = """
-        SELECT * FROM movies WHERE starring LIKE %s
-    """
-
-    MOVIES_BY_ACTOR_PARTICIPATED = """
-        SELECT * FROM movies WHERE actors LIKE %s
-    """
-
-    MOVIES_BY_GENRE = """
-        SELECT * FROM movies WHERE genres LIKE %s
-    """
-
-    # 高级查询
-    HIGH_RATED_MOVIES = """
-        SELECT * FROM movies 
-        WHERE rating >= %s AND reviews >= %s
-        ORDER BY rating DESC
-    """
-
-    MOVIES_BY_TIME_RANGE = """
-        SELECT * FROM movies 
-        WHERE date_added >= %s AND date_added <= %s
-        ORDER BY date_added DESC
-    """
-
+    # 按季度统计电影数量
     MOVIES_BY_QUARTER = """
-        SELECT 
-            EXTRACT(QUARTER FROM date_added::date) AS quarter,
-            COUNT(*) AS count
-        FROM movies
-        WHERE EXTRACT(YEAR FROM date_added::date) = %s
-        GROUP BY EXTRACT(QUARTER FROM date_added::date)
-        ORDER BY quarter
+        SELECT release_quarter, COUNT(*) AS movie_count
+        FROM dim_movies
+        WHERE release_year = %s
+        GROUP BY release_quarter
+        ORDER BY release_quarter;
     """
 
-    MOVIES_ADDED_TUESDAY = """
-        SELECT * FROM movies
-        WHERE EXTRACT(YEAR FROM date_added::date) = %s
-        AND EXTRACT(DOW FROM date_added::date) = 2
-        ORDER BY date_added DESC
+    # 按月份统计电影数量
+    MOVIES_BY_MONTH = """
+        SELECT release_month, COUNT(*) AS movie_count
+        FROM dim_movies
+        WHERE release_year = %s
+        GROUP BY release_month
+        ORDER BY release_month;
     """
 
-    # 关系查询
-    ACTOR_COLLABORATIONS = """
-        WITH actor_movies AS (
-            SELECT DISTINCT 
-                unnest(string_to_array(actors, ',')) AS actor,
-                title
-            FROM movies
-        )
-        SELECT 
-            a1.actor,
-            a2.actor,
-            COUNT(DISTINCT a1.title) AS collaborations
-        FROM actor_movies a1
-        JOIN actor_movies a2 ON a1.title = a2.title
-        WHERE a1.actor < a2.actor
-        GROUP BY a1.actor, a2.actor
-        HAVING COUNT(DISTINCT a1.title) >= %s
-        ORDER BY collaborations DESC
-        LIMIT %s
+    # 按周统计电影数量
+    MOVIES_BY_WEEK = """
+        SELECT release_week, COUNT(*) AS movie_count
+        FROM dim_movies
+        WHERE release_year = %s
+        GROUP BY release_week
+        ORDER BY release_week;
     """
 
-    DIRECTOR_ACTOR_COLLABORATIONS = """
-        WITH director_actors AS (
-            SELECT DISTINCT 
-                director,
-                unnest(string_to_array(actors, ',')) AS actor,
-                title
-            FROM movies
-        )
-        SELECT 
-            actor,
-            COUNT(DISTINCT title) AS collaborations
-        FROM director_actors
+    # 某天新增电影数量
+    MOVIES_BY_DAY = """
+        SELECT release_date, COUNT(*) AS movie_count
+        FROM dim_movies
+        WHERE release_date = %s
+        GROUP BY release_date;
+    """
+
+    # 用户评价数量统计（按年份/季度/月份/周）
+    REVIEWS_COUNT_BY_TIME = """
+        SELECT review_year, review_quarter, review_month, review_week, COUNT(*) AS review_count
+        FROM fact_reviews
+        WHERE review_year = %s
+        GROUP BY review_year, review_quarter, review_month, review_week
+        ORDER BY review_year, review_quarter, review_month, review_week;
+    """
+
+    # 按评分区间统计评价数量
+    REVIEWS_COUNT_BY_SCORE = """
+        SELECT COUNT(*) AS review_count
+        FROM fact_reviews
+        WHERE score >= %s;
+    """
+
+    # 时间段内电影及评价统计（电影数量、平均评分、评论数）
+    MOVIES_REVIEWS_STATS_BY_TIME = """
+        SELECT m.movie_id, m.title, COUNT(r.review_id) AS review_count, AVG(r.score) AS avg_score
+        FROM dim_movies m
+        LEFT JOIN fact_reviews r ON m.movie_id = r.movie_id
+        WHERE m.release_date >= %s AND m.release_date <= %s
+        GROUP BY m.movie_id, m.title
+        ORDER BY avg_score DESC;
+    """
+
+    # ===========================
+    # 电影维度查询/统计
+    # ===========================
+
+    # 查询电影所有版本
+    MOVIES_VERSIONS_BY_TITLE = """
+        SELECT movie_id, title, versions
+        FROM dim_movies
+        WHERE title = %s;
+    """
+
+    # 按电影名统计评论数量、平均分
+    MOVIE_REVIEWS_BY_TITLE = """
+        SELECT m.movie_id, m.title, COUNT(r.review_id) AS review_count, AVG(r.score) AS avg_score
+        FROM dim_movies m
+        LEFT JOIN fact_reviews r ON m.movie_id = r.movie_id
+        WHERE m.title = %s
+        GROUP BY m.movie_id, m.title;
+    """
+
+    # 查询某导演的所有电影
+    MOVIES_BY_DIRECTOR = """
+        SELECT movie_id, title, release_date
+        FROM dim_movies
+        WHERE director = %s;
+    """
+
+    # 统计导演作品数量
+    DIRECTOR_MOVIE_COUNT = """
+        SELECT director, COUNT(*) AS movie_count
+        FROM dim_movies
         WHERE director = %s
-        GROUP BY actor
-        HAVING COUNT(DISTINCT title) >= %s
+        GROUP BY director;
+    """
+
+    # 某演员主演电影数量
+    MOVIES_BY_ACTOR_STARRING = """
+        SELECT m.movie_id, m.title, m.release_date
+        FROM dim_movies m
+        JOIN movie_actor ma ON m.movie_id = ma.movie_id
+        WHERE ma.actor_id = %s AND ma.is_lead = TRUE;
+    """
+
+    # 某演员参演电影数量
+    MOVIES_BY_ACTOR_PARTICIPATED = """
+        SELECT m.movie_id, m.title, m.release_date
+        FROM dim_movies m
+        JOIN movie_actor ma ON m.movie_id = ma.movie_id
+        WHERE ma.actor_id = %s;
+    """
+
+    # 按电影类型统计电影数量
+    MOVIES_BY_GENRE = """
+        SELECT COUNT(*) AS movie_count
+        FROM dim_movies
+        WHERE %s = ANY(genres);
+    """
+
+    # 多条件组合查询（可选参数：director, genre, year, min_score, actor）
+    MOVIES_BY_MULTI_CONDITION_TEMPLATE = """
+        SELECT m.movie_id, m.title, m.release_date, AVG(r.score) AS avg_score, COUNT(r.review_id) AS review_count
+        FROM dim_movies m
+        LEFT JOIN fact_reviews r ON m.movie_id = r.movie_id
+        LEFT JOIN movie_actor ma ON m.movie_id = ma.movie_id
+        {where_clause}
+        GROUP BY m.movie_id, m.title, m.release_date
+        {having_clause}
+        ORDER BY avg_score DESC;
+    """
+
+    # ===========================
+    # 用户评价相关
+    # ===========================
+
+    # 高评分电影（评分+评论数）
+    HIGH_RATED_MOVIES = """
+        SELECT m.movie_id, m.title, AVG(r.score) AS avg_score, COUNT(r.review_id) AS review_count
+        FROM dim_movies m
+        JOIN fact_reviews r ON m.movie_id = r.movie_id
+        GROUP BY m.movie_id, m.title
+        HAVING AVG(r.score) >= %s AND COUNT(r.review_id) >= %s
+        ORDER BY avg_score DESC;
+    """
+
+    # 包含关键词的评论
+    REVIEWS_BY_KEYWORD = """
+        SELECT review_id, movie_id, user_id, review_text, score
+        FROM fact_reviews
+        WHERE review_text ILIKE %s;
+    """
+
+    # ===========================
+    # 演员-导演关系查询
+    # ===========================
+
+    # 演员合作统计
+    ACTOR_COLLABORATIONS = """
+        SELECT ma1.actor_id AS actor1, ma2.actor_id AS actor2, COUNT(*) AS collaborations
+        FROM movie_actor ma1
+        JOIN movie_actor ma2 ON ma1.movie_id = ma2.movie_id
+        WHERE ma1.actor_id < ma2.actor_id
+        GROUP BY ma1.actor_id, ma2.actor_id
+        HAVING COUNT(*) >= %s
         ORDER BY collaborations DESC
-        LIMIT %s
+        LIMIT %s;
+    """
+
+    # 导演与演员合作次数
+    DIRECTOR_ACTOR_COLLABORATIONS = """
+        SELECT ma.actor_id, COUNT(*) AS collaborations
+        FROM movie_actor ma
+        JOIN dim_movies m ON ma.movie_id = m.movie_id
+        WHERE m.director = %s
+        GROUP BY ma.actor_id
+        HAVING COUNT(*) >= %s
+        ORDER BY collaborations DESC
+        LIMIT %s;
+    """
+
+    # 某类型电影最受欢迎的演员组合（按评论数统计）
+    POPULAR_ACTOR_COMBINATIONS_BY_GENRE = """
+        SELECT ma1.actor_id AS actor1, ma2.actor_id AS actor2, COUNT(r.review_id) AS review_count
+        FROM movie_actor ma1
+        JOIN movie_actor ma2 ON ma1.movie_id = ma2.movie_id
+        JOIN dim_movies m ON ma1.movie_id = m.movie_id
+        LEFT JOIN fact_reviews r ON m.movie_id = r.movie_id
+        WHERE ma1.actor_id < ma2.actor_id AND %s = ANY(m.genres)
+        GROUP BY ma1.actor_id, ma2.actor_id
+        ORDER BY review_count DESC
+        LIMIT %s;
     """
