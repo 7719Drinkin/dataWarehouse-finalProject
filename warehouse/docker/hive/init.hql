@@ -19,18 +19,18 @@ LOCATION '/warehouse/clean/reviews_amazon/';
 -- ====================================
 -- Staging表(必须创建!) - 用于接收PyHive上传的数据
 -- ====================================
-CREATE TABLE reviews_staging (
-  asin STRING,
-  user_id STRING,
-  profile_name STRING,
+CREATE TABLE reviews_csv_ext (
+  productId STRING,
+  userid STRING,
+  profilename STRING,
   helpfulness STRING,
   score DOUBLE,
-  review_unix BIGINT,
-  review_summary STRING,
-  review_text STRING
+  time BIGINT,
+  summary STRING,
+  text STRING
 )
 ROW FORMAT DELIMITED
-FIELDS TERMINATED BY ','  -- 如果你的数据是CSV,改成 ','
+FIELDS TERMINATED BY ','
 LINES TERMINATED BY '\n'
 STORED AS TEXTFILE;        -- staging表用TEXTFILE,方便插入
 
