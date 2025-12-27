@@ -12,6 +12,8 @@ from typing import Any, Dict, List, cast
 from app.models.base.base_model import BaseModel, QueryParams
 from app.models.hive.connection import HiveConnection
 from app.models.hive.queries import HiveQueries
+from app.utils.database_utils import DatabaseUtils
+from datetime import datetime
 
 
 class HiveModel(BaseModel):
@@ -63,30 +65,42 @@ class HiveModel(BaseModel):
             Exception: 查询执行失败时抛出
         """
         self._validate_connection()
-
-        # 格式化查询字符串
         formatted_query = query
-        if params:
-            if isinstance(params, dict):
-                formatted_query = query.format(**params)
-            else:
-                raise TypeError("Hive model only supports dict-style parameters")
+        query_id = DatabaseUtils.generate_query_id("hive_query", params or {})
+        start_time = datetime.now()
 
-        with HiveConnection.get_connection() as conn:
-            cursor = cast(Any, conn.cursor())
-            try:
-                cursor.execute(formatted_query)
-                description = cursor.description
-                if description:
-                    columns = [cast(str, desc[0]) for desc in cast(List[Any], description)]
-                    results = cast(List[Any], cursor.fetchall())
-                    return [dict(zip(columns, row)) for row in results]
+        try:
+            if params:
+                if isinstance(params, dict):
+                    formatted_query = query.format(**params)
                 else:
-                    return []
-            except Exception as e:
-                print(f"Hive query error: {e}")
-                print(f"Query: {formatted_query}")
-                raise e
+                    raise TypeError("Hive model only supports dict-style parameters")
+
+            with HiveConnection.get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute(formatted_query)
+                results = cursor.fetchall()
+                dict_results = [dict(row) for row in results]
+
+            end_time = datetime.now()
+            DatabaseUtils.log_query_performance(
+                query_id=query_id,
+                db_type="Hive",
+                execution_time=(end_time - start_time).total_seconds(),
+                success=True
+            )
+            return dict_results
+
+        except Exception as e:
+            end_time = datetime.now()
+            DatabaseUtils.log_query_performance(
+                query_id=query_id,
+                db_type="Hive",
+                execution_time=(end_time - start_time).total_seconds(),
+                success=False,
+                error=str(e)
+            )
+            raise
 
     def execute_non_query(self, query: str, params: QueryParams = None) -> int:
         """

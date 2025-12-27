@@ -13,6 +13,8 @@ from typing import Any, Dict, List, cast, Tuple
 from app.models.base.base_model import BaseModel, QueryParams
 from app.models.opengauss.connection import OpenGaussConnection
 from app.models.opengauss.queries import OpenGaussQueries
+from app.utils.database_utils import DatabaseUtils
+from datetime import datetime
 
 
 class OpenGaussModel(BaseModel):
@@ -48,26 +50,61 @@ class OpenGaussModel(BaseModel):
 
     def execute_query(self, query: str, params: QueryParams = None) -> List[Dict[str, Any]]:
         """
-        执行查询操作，并返回字典列表形式的结果。
+        执行查询操作，并返回字典列表形式，同时记录查询日志。
 
         参数:
             query (str): SQL 查询语句
             params (QueryParams): 查询参数，支持元组或 None
 
         返回:
-            List[Dict[str, Any]]: 查询结果，每行以字典形式表示
-
-        异常:
-            ConnectionError: 未建立连接时抛出
-            Exception: 查询执行失败时抛出
+            {
+                [dict(row) for row in results]: 查询结果，每行以字典形式表示
+                float: 执行时间记录
+                bool: 是否查询成功
+            }
         """
         self._validate_connection()
         query_params = params if isinstance(params, (tuple, type(None))) else ()
-        with OpenGaussConnection.get_connection() as conn:
-            with conn.cursor() as cursor:
-                cursor.execute(query, query_params or ())
-                results = cursor.fetchall()
-                return [dict(row) for row in results]
+
+        query_id = DatabaseUtils.generate_query_id("opengauss_query", query_params)
+        start_time = datetime.now()
+
+        try:
+            with OpenGaussConnection.get_connection() as conn:
+                with conn.cursor() as cursor:
+                    cursor.execute(query, query_params or ())
+                    results = cursor.fetchall()
+                    dict_results = [dict(row) for row in results]
+
+            end_time = datetime.now()
+            execution_time = (end_time - start_time).total_seconds()
+
+            # 日志（保持你现在的逻辑）
+            DatabaseUtils.log_query_performance(
+                query_id=query_id,
+                db_type="OpenGauss",
+                execution_time=execution_time,
+                success=True
+            )
+
+            return {
+                "data": dict_results,
+                "execution_time": execution_time,
+                "success": True
+            }
+
+        except Exception as e:
+            end_time = datetime.now()
+            execution_time = (end_time - start_time).total_seconds()
+
+            DatabaseUtils.log_query_performance(
+                query_id=query_id,
+                db_type="OpenGauss",
+                execution_time=execution_time,
+                success=False,
+                error=str(e)
+            )
+            raise
 
     def execute_non_query(self, query: str, params: QueryParams = None) -> int:
         """

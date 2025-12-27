@@ -1,21 +1,65 @@
-from typing import Dict, List, Any, Optional
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from typing import Dict, Any, Optional
 from .opengauss_service import OpenGaussService
 from .hive_service import HiveService
 from .neo4j_service import Neo4jService
 
+
 class QueryAggregator:
     """
-    多数据库统一聚合查询服务
+    多数据库统一聚合查询服务（并发执行）
 
-    可以在 OpenGauss、Hive 和 Neo4j 三类数据库上执行同名查询方法，
-    返回统一字典结构的结果。支持多条件查询的可选参数。
+    设计原则：
+    - 不在 Aggregator 层做时间统计
+    - execution_time 完全来自 Model 层
+    - 结果结构直接返回给前端
     """
 
     def __init__(self):
-        """初始化聚合服务，创建三个数据库的 Service 实例"""
+        """初始化三个数据库的 Service 实例"""
         self.opengauss_service = OpenGaussService()
         self.hive_service = HiveService()
         self.neo4j_service = Neo4jService()
+
+    def _execute_single(
+        self,
+        db_name: str,
+        service,
+        method_name: str,
+        **params
+    ) -> Dict[str, Any]:
+        """
+        执行单个数据库查询（供线程池调用）
+
+        返回结构示例：
+        {
+            "db": "opengauss",
+            "data": [...],
+            "execution_time": 0.123,
+            "success": True
+        }
+        """
+        try:
+            with service as s:
+                func = getattr(s, method_name)
+
+                # ⚠️ 这里直接接收 Model 返回的 dict
+                result = func(**params)
+
+                return {
+                    "db": db_name,
+                    **result
+                }
+
+        except Exception as e:
+            # 如果 Service / Model 抛异常，这里兜底
+            return {
+                "db": db_name,
+                "data": [],
+                "execution_time": None,
+                "success": False,
+                "error": str(e)
+            }
 
     def execute_on_all(
         self,
@@ -26,44 +70,63 @@ class QueryAggregator:
         min_score: Optional[float] = None,
         actor: Optional[int] = None,
         **kwargs
-    ) -> Dict[str, List[Dict[str, Any]]]:
+    ) -> Dict[str, Dict[str, Any]]:
         """
-        在三类数据库上执行同名方法，并返回结果
+        在三个数据库上并发执行同名查询方法
 
-        支持多条件查询参数：
-            - director: 导演名称
-            - genre: 类型
-            - year: 上映年份
-            - min_score: 最低平均评分
-            - actor: 演员ID
-
-        其他查询参数可通过 **kwargs 传递给各 Service 层
-
-        返回:
-            Dict[str, List[Dict]]: 各数据库查询结果
+        返回给前端的最终结构：
+        {
+            "opengauss": {
+                "data": [...],
+                "execution_time": 0.12,
+                "success": True
+            },
+            "hive": {
+                "data": [...],
+                "execution_time": 0.98,
+                "success": True
+            },
+            "neo4j": {
+                "data": [...],
+                "execution_time": 0.31,
+                "success": True
+            }
+        }
         """
-        results: Dict[str, List[Dict[str, Any]]] = {}
 
-        # 遍历三类数据库服务
-        for db_name, service in [
+        params = dict(
+            director=director,
+            genre=genre,
+            year=year,
+            min_score=min_score,
+            actor=actor,
+            **kwargs
+        )
+
+        services = [
             ("opengauss", self.opengauss_service),
             ("hive", self.hive_service),
             ("neo4j", self.neo4j_service)
-        ]:
-            try:
-                with service as s:
-                    func = getattr(s, method_name)
-                    # 自动传递多条件查询参数 + 其他 kwargs
-                    results[db_name] = func(
-                        director=director,
-                        genre=genre,
-                        year=year,
-                        min_score=min_score,
-                        actor=actor,
-                        **kwargs
-                    )
-            except Exception as e:
-                print(f"Error querying {db_name}: {e}")
-                results[db_name] = []
+        ]
+
+        results: Dict[str, Dict[str, Any]] = {}
+
+        # 并发执行三个数据库查询
+        with ThreadPoolExecutor(max_workers=3) as executor:
+            futures = [
+                executor.submit(
+                    self._execute_single,
+                    db_name,
+                    service,
+                    method_name,
+                    **params
+                )
+                for db_name, service in services
+            ]
+
+            for future in as_completed(futures):
+                res = future.result()
+                db_name = res.pop("db")
+                results[db_name] = res
 
         return results

@@ -6,6 +6,8 @@ from neo4j import Query  # type: ignore
 from app.models.base.base_model import BaseModel, QueryParams
 from app.models.neo4j.connection import Neo4jConnection
 from app.models.neo4j.queries import Neo4jQueries
+from app.utils.database_utils import DatabaseUtils
+from datetime import datetime
 
 class Neo4jModel(BaseModel):
     """Neo4j图数据模型
@@ -50,11 +52,33 @@ class Neo4jModel(BaseModel):
         """
         self._validate_connection()
         query_params = params if isinstance(params, dict) else {}
+        query_id = DatabaseUtils.generate_query_id("neo4j_query", query_params)
+        start_time = datetime.now()
 
-        with Neo4jConnection.get_session() as session:
-            query_obj = cast(Any, Query(cast(Any, query)))
-            result = cast(Any, session.run(query_obj, query_params))
-            return result.data()
+        try:
+            with Neo4jConnection.get_session() as session:
+                result = session.run(query, query_params)
+                dict_results = result.data()
+
+            end_time = datetime.now()
+            DatabaseUtils.log_query_performance(
+                query_id=query_id,
+                db_type="Neo4j",
+                execution_time=(end_time - start_time).total_seconds(),
+                success=True
+            )
+            return dict_results
+
+        except Exception as e:
+            end_time = datetime.now()
+            DatabaseUtils.log_query_performance(
+                query_id=query_id,
+                db_type="Neo4j",
+                execution_time=(end_time - start_time).total_seconds(),
+                success=False,
+                error=str(e)
+            )
+            raise
 
     def execute_non_query(self, query: str, params: QueryParams = None) -> int:
         """执行非查询操作（CREATE, UPDATE, DELETE 等）
