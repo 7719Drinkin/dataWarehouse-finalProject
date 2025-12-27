@@ -1,0 +1,9 @@
+2025-12-27 17:22:42,707 | INFO | [QUERY] cb39ea59 | OpenGauss | SUCCESS | 0.0274s
+2025-12-27 17:22:42,763 | INFO | [QUERY] 61b572b4 | Hive | FAILED | 0.0283s | ERROR: TExecuteStatementResp(status=TStatus(statusCode=3, infoMessages=['Server-side error; please check HS2 logs.'], sqlState='42S02', errorCode=10001, errorMessage="Error while compiling statement: FAILED: SemanticException [Error 10001]: Line 3:17 Table not found 'dim_movies'"), operationHandle=None)
+2025-12-27 17:22:43,616 | INFO | [QUERY] 1c8f3bae | Neo4j | SUCCESS | 0.7300s
+2025-12-27 17:33:41,397 | INFO | [QUERY] 1c8f3bae | Neo4j | SUCCESS | 0.0184s
+2025-12-27 17:33:41,422 | INFO | [QUERY] cb39ea59 | OpenGauss | SUCCESS | 0.0290s
+2025-12-27 17:33:42,222 | INFO | [QUERY] 61b572b4 | Hive | FAILED | 0.7596s | ERROR: cannot convert dictionary update sequence element #0 to a sequence
+2025-12-27 17:40:27,817 | INFO | [QUERY] 1c8f3bae | Neo4j | SUCCESS | 0.0196s
+2025-12-27 17:40:27,838 | INFO | [QUERY] cb39ea59 | OpenGauss | SUCCESS | 0.0275s
+2025-12-27 17:40:28,629 | INFO | [QUERY] 61b572b4 | Hive | SUCCESS | 0.7349s

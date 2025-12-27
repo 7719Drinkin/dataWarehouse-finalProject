@@ -11,7 +11,7 @@ export const API_CONFIG = {
   BASE_URL: getBaseUrl(),
   ENDPOINTS: {
     HEALTH: '/api/query/health',
-    MOVIES_BY_TIME: '/api/query/movies-by-year', // Generic endpoint for time, person, and property queries
+    MOVIES_BY_TIME: '/api/query/movies-by-time',
     MOVIES_BY_PERSON: '/api/query/movies-by-person',
     MOVIES_BY_PROPERTY: '/api/query/movies-by-property',
     HIGH_RATED_MOVIES: '/api/query/high-rated-movies',

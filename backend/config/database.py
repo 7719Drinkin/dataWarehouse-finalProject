@@ -20,7 +20,7 @@ class DatabaseConfig:
     """数据库配置类"""
 
     # OpenGauss配置
-    OPENGAUSS_HOST = os.getenv('OPENGAUSS_HOST', 'localhost')
+    OPENGAUSS_HOST = os.getenv('OPENGAUSS_HOST', '139.196.151.22')
     OPENGAUSS_PORT = int(os.getenv('OPENGAUSS_PORT', '5432'))
     OPENGAUSS_USER = os.getenv('OPENGAUSS_USER', 'gaussdb')
     OPENGAUSS_PASSWORD = os.getenv('OPENGAUSS_PASSWORD', 'GaussDB@2025')
@@ -31,13 +31,13 @@ class DatabaseConfig:
     OPENGAUSS_POOL_MAX_CONN = int(os.getenv('OPENGAUSS_POOL_MAX_CONN', '10'))
 
     # Hive配置
-    HIVE_HOST = os.getenv('HIVE_HOST', 'localhost')
+    HIVE_HOST = os.getenv('HIVE_HOST', '139.196.151.22')
     HIVE_PORT = int(os.getenv('HIVE_PORT', '10000'))
     HIVE_USER = os.getenv('HIVE_USER', 'hive')
     HIVE_DATABASE = os.getenv('HIVE_DATABASE', 'default')
 
     # Neo4j配置
-    NEO4J_URI = os.getenv('NEO4J_URI', 'bolt://localhost:7687')
+    NEO4J_URI = os.getenv('NEO4J_URI', 'bolt://139.196.151.22:7687')
     NEO4J_USER = os.getenv('NEO4J_USER', 'neo4j')
     NEO4J_PASSWORD = os.getenv('NEO4J_PASSWORD', 'neo4j_password')
 
@@ -67,4 +67,6 @@ class DatabaseConfig:
             'uri': cls.NEO4J_URI,
             'auth': (cls.NEO4J_USER, cls.NEO4J_PASSWORD)
         }
+
+
 

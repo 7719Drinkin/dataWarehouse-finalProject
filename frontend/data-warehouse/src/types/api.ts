@@ -1,4 +1,3 @@
-import type { ActorCollaboration, DirectorActorCollaboration, Movie } from './data';
 import type { QueryParams, QueryType } from './query';
 
 /**
@@ -16,8 +15,8 @@ export interface ApiResponse<T> {
   executionTime?: number; // in milliseconds
 }
 
-// A union type for all possible result data structures
-export type QueryResultData = Movie[] | ActorCollaboration[] | DirectorActorCollaboration[];
+// 后端返回的行结构在不同查询中差异很大，这里使用“动态字段/动态列”承接
+export type QueryResultData = Array<Record<string, any>>;
 
 /**
  * Represents the result from a single database.

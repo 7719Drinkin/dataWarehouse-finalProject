@@ -1,5 +1,6 @@
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, cast
+from app.models.base.base_model import AggregatedQueryResult
 from .opengauss_service import OpenGaussService
 from .hive_service import HiveService
 from .neo4j_service import Neo4jService
@@ -68,9 +69,9 @@ class QueryAggregator:
         genre: Optional[str] = None,
         year: Optional[int] = None,
         min_score: Optional[float] = None,
-        actor: Optional[int] = None,
+        actor: Optional[str] = None,
         **kwargs
-    ) -> Dict[str, Dict[str, Any]]:
+    ) -> AggregatedQueryResult:
         """
         在三个数据库上并发执行同名查询方法
 
@@ -94,14 +95,21 @@ class QueryAggregator:
         }
         """
 
-        params = dict(
-            director=director,
-            genre=genre,
-            year=year,
-            min_score=min_score,
-            actor=actor,
-            **kwargs
-        )
+        # 允许 controller 通过 kwargs 透传更多参数（如 starring、month、quarter、week、title、min_reviews 等）
+        # 关键：只传非 None 参数，避免 Service 方法收到不支持的关键字参数
+        params: Dict[str, Any] = {
+            **{k: v for k, v in kwargs.items() if v is not None}
+        }
+
+        for k, v in {
+            "director": director,
+            "genre": genre,
+            "year": year,
+            "min_score": min_score,
+            "actor": actor,
+        }.items():
+            if v is not None:
+                params[k] = v
 
         services = [
             ("opengauss", self.opengauss_service),
@@ -129,4 +137,4 @@ class QueryAggregator:
                 db_name = res.pop("db")
                 results[db_name] = res
 
-        return results
+        return cast(AggregatedQueryResult, results)

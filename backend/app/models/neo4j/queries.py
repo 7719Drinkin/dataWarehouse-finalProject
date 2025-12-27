@@ -113,6 +113,30 @@ class Neo4jQueries:
         RETURN m
     """
 
+    # 按演员名查询（前端传 name）
+    MOVIES_BY_ACTOR_NAME_STARRING = """
+        MATCH (a:Actor)-[:STARRING]->(m:Movie)
+        WHERE a.name = $actor_name
+        RETURN m
+    """
+
+    MOVIES_BY_ACTOR_NAME_PARTICIPATED = """
+        MATCH (a:Actor)-[:ACTED_IN]->(m:Movie)
+        WHERE a.name = $actor_name
+        RETURN m
+    """
+
+    # 按人员查询（可选参数：director / actor / starring；至少一个）
+    MOVIES_BY_PERSON_TEMPLATE = """
+        MATCH (m:Movie)
+        OPTIONAL MATCH (m)-[:DIRECTED_BY]->(d:Director)
+        OPTIONAL MATCH (m)<-[:ACTED_IN]-(a:Actor)
+        OPTIONAL MATCH (m)<-[:STARRING]-(s:Actor)
+        {where_clause}
+        RETURN DISTINCT m
+        ORDER BY m.release_date DESC
+    """
+
     # 类别相关
     MOVIES_BY_GENRE = """
         MATCH (m:Movie)-[:HAS_GENRE]->(g:Genre)
@@ -177,3 +201,5 @@ class Neo4jQueries:
         ORDER BY movies DESC
         LIMIT $limit
     """
+
+

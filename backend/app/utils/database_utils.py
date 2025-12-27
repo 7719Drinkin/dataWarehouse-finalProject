@@ -4,7 +4,7 @@
 import time
 import logging
 from typing import Any, Dict, List, Callable, Optional
-from logger_setup import setup_query_logger
+from app.utils.logger_setup import setup_query_logger
 from contextlib import contextmanager
 
 from pathlib import Path
@@ -199,7 +199,7 @@ class DatabaseUtils:
         log_entry = f"[QUERY] {query_id} | {db_type} | {status} | {time_str}"
         if error:
             log_entry += f" | ERROR: {error}"
-        logger.info(log_entry)
+        DatabaseUtils.logger.info(log_entry)
 
     @staticmethod
     def compare_result_consistency(
@@ -270,4 +270,6 @@ class DatabaseUtils:
             'differences': differences,
             'compared_databases': databases
         }
+
+
 
