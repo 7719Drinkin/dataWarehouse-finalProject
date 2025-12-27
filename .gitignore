@@ -1,6 +1,7 @@
 data_source/
 .vscode
 .idea
+backend/query.log
 warehouse/docker/hdfs/
 warehouse/docker/neo4j/data/
 warehouse/docker/neo4j/logs/
