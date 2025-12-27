@@ -1,6 +1,10 @@
 """
 hive_queries.py
 Hive 数据库查询语句集合（支持数据应用需求）
+
+注意：本项目的 Hive 表结构以运行环境为准（HS2 上实际 DESCRIBE 结果）：
+- movie_dw.movies_meta_dw 主键列为 movie_id（非 asin）
+- movie_dw.reviews_clean_amazon 主键列为 product_id（非 asin）
 """
 
 class HiveQueries:
@@ -52,48 +56,43 @@ class HiveQueries:
 
     # 某时间段电影及评价统计
     MOVIES_BY_TIME_RANGE = """
-        SELECT m.asin AS movie_id, m.title,
+        SELECT m.movie_id AS movie_id, m.title,
                COUNT(1) AS review_count,
                AVG(r.score) AS avg_score
         FROM movie_dw.movies_meta_dw m
-        LEFT JOIN movie_dw.reviews_clean_amazon r ON m.asin = r.asin
+        LEFT JOIN movie_dw.reviews_clean_amazon r ON m.movie_id = r.product_id
         WHERE m.release_date >= '{start_date}' AND m.release_date <= '{end_date}'
-        GROUP BY m.asin, m.title
+        GROUP BY m.movie_id, m.title
         ORDER BY avg_score DESC
     """
 
     # =======================
     # 二、电影维度查询/统计
     # =======================
-    # 按导演查询电影
     MOVIES_BY_DIRECTOR = """
         SELECT *
         FROM movie_dw.movies_meta_dw
         WHERE array_contains(director, '{director}')
     """
 
-    # 按演员主演查询
     MOVIES_BY_ACTOR_STARRING = """
         SELECT *
         FROM movie_dw.movies_meta_dw
         WHERE array_contains(starring, '{actor}')
     """
 
-    # 按演员参演查询
     MOVIES_BY_ACTOR_PARTICIPATED = """
         SELECT *
         FROM movie_dw.movies_meta_dw
         WHERE array_contains(actors, '{actor}')
     """
 
-    # 按电影类型查询
     MOVIES_BY_GENRE = """
         SELECT *
         FROM movie_dw.movies_meta_dw
         WHERE array_contains(genres, '{genre}')
     """
 
-    # 按人员查询（可选参数：director / actor / starring；至少一个）
     MOVIES_BY_PERSON_TEMPLATE = """
         SELECT *
         FROM movie_dw.movies_meta_dw
@@ -101,12 +100,12 @@ class HiveQueries:
     """
 
     MOVIES_BY_MULTI_CONDITION_TEMPLATE = """
-        SELECT m.asin AS movie_id, m.title, m.release_date,
+        SELECT m.movie_id AS movie_id, m.title, m.release_date,
                AVG(r.score) AS avg_score, COUNT(1) AS review_count
         FROM movie_dw.movies_meta_dw m
-        LEFT JOIN movie_dw.reviews_clean_amazon r ON m.asin = r.asin
+        LEFT JOIN movie_dw.reviews_clean_amazon r ON m.movie_id = r.product_id
         {where_clause}
-        GROUP BY m.asin, m.title, m.release_date
+        GROUP BY m.movie_id, m.title, m.release_date
         {having_clause}
         ORDER BY avg_score DESC
     """
@@ -114,28 +113,25 @@ class HiveQueries:
     # =======================
     # 三、用户评价相关
     # =======================
-    # 高评分电影查询
     HIGH_RATED_MOVIES = """
-        SELECT m.asin AS movie_id, m.title,
+        SELECT m.movie_id AS movie_id, m.title,
                COUNT(1) AS review_count,
                AVG(r.score) AS avg_score
         FROM movie_dw.movies_meta_dw m
-        JOIN movie_dw.reviews_clean_amazon r ON m.asin = r.asin
-        GROUP BY m.asin, m.title
+        JOIN movie_dw.reviews_clean_amazon r ON m.movie_id = r.product_id
+        GROUP BY m.movie_id, m.title
         HAVING AVG(r.score) >= {min_score} AND COUNT(1) >= {min_reviews}
         ORDER BY avg_score DESC
     """
 
-    # 按评分区间统计
     REVIEWS_BY_SCORE_RANGE = """
-        SELECT asin AS movie_id, COUNT(*) AS review_count
+        SELECT product_id AS movie_id, COUNT(*) AS review_count
         FROM movie_dw.reviews_clean_amazon
         WHERE score >= {min_score} AND score <= {max_score}
-        GROUP BY asin
+        GROUP BY product_id
         ORDER BY review_count DESC
     """
 
-    # 按关键词搜索评论
     REVIEWS_BY_KEYWORD = """
         SELECT *
         FROM movie_dw.reviews_clean_amazon
@@ -146,7 +142,6 @@ class HiveQueries:
     # =======================
     # 四、演员-导演关系查询
     # =======================
-    # 演员合作关系
     ACTOR_COLLABORATIONS = """
         SELECT a1, a2, COUNT(*) AS collaborations
         FROM (
@@ -161,21 +156,14 @@ class HiveQueries:
         LIMIT {limit}
     """
 
-    # 导演-演员合作关系
+    # 导演-演员合作关系（仅 director 必填，不传 min_collaborations）
     DIRECTOR_ACTOR_COLLABORATIONS = """
-        SELECT director, actor, COUNT(*) AS collaborations
-        FROM (
-            SELECT director, EXPLODE(actors) AS actor
-            FROM movie_dw.movies_meta_dw
-        ) t
-        WHERE director = '{director}'
-        GROUP BY director, actor
-        HAVING COUNT(*) >= {min_collaborations}
+        SELECT d AS director, a AS actor, COUNT(1) AS collaborations
+        FROM movie_dw.movies_meta_dw
+        LATERAL VIEW explode(director) dd AS d
+        LATERAL VIEW explode(actors) aa AS a
+        WHERE d = '{director}'
+        GROUP BY d, a
         ORDER BY collaborations DESC
         LIMIT {limit}
     """
-
-
-
-
-

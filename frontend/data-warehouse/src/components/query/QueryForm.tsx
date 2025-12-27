@@ -23,8 +23,8 @@ const QueryForm: React.FC<QueryFormProps> = ({
     starring_actor: '',
     participating_actor: '',
     genre: '',
-    min_score: 6,
-    min_reviews: 10,
+    min_score: 1,
+    min_reviews: 1,
     limit: 10,
     min_collaborations: 2
   });
@@ -99,7 +99,7 @@ const QueryForm: React.FC<QueryFormProps> = ({
       case QueryType.HIGH_RATED_MOVIES:
         return (
           <div>
-            {createInput('最低评分', 'min_score', 'number', '例如: 8.0', 0, 10)}
+            {createInput('最低评分', 'min_score', 'number', '例如: 2.0', 0, 5)}
             {createInput('最少评价数', 'min_reviews', 'number', '例如: 1000', 0)}
           </div>
         );
@@ -145,6 +145,7 @@ const QueryForm: React.FC<QueryFormProps> = ({
               cursor: 'pointer'
             }}
           >
+            <option value="aggregated">Aggregation</option>
             <option value="hive">Hive</option>
             <option value="opengauss">OpenGauss</option>
             <option value="neo4j">Neo4j</option>

@@ -71,12 +71,18 @@ class OpenGaussQueries:
 
     # 时间段内电影及评价统计（电影数量、平均评分、评论数）
     MOVIES_REVIEWS_STATS_BY_TIME = """
-        SELECT m.movie_id, m.title, COUNT(r.review_id) AS review_count, AVG(r.score) AS avg_score
+        SELECT
+            m.movie_id,
+            m.title,
+            m.director,
+            m.genres,
+            COUNT(r.review_id) AS review_count,
+            COALESCE(AVG(r.score), 0) AS rating
         FROM dim_movies m
         LEFT JOIN fact_reviews r ON m.movie_id = r.movie_id
         WHERE m.release_date >= %s AND m.release_date <= %s
-        GROUP BY m.movie_id, m.title
-        ORDER BY avg_score DESC;
+        GROUP BY m.movie_id, m.title, m.director, m.genres
+        ORDER BY rating DESC;
     """
 
     # ===========================
@@ -100,21 +106,24 @@ class OpenGaussQueries:
     """
 
     # 查询某导演的所有电影
+    # 注意：dim_movies.director 是 TEXT[]（数组），不能直接用 "director = %s" 比较。
+    # 若要按导演名过滤，应使用：%s = ANY(director)
     MOVIES_BY_DIRECTOR = """
         SELECT movie_id, title, release_date
         FROM dim_movies
-        WHERE director = %s;
+        WHERE %s = ANY(director);
     """
 
     # 统计导演作品数量
+    # 注意：dim_movies.director 是 TEXT[]，这里返回 director 数组本身。
+    # 若要按“某个导演名”统计其作品数，应使用 %s = ANY(director)
     DIRECTOR_MOVIE_COUNT = """
-        SELECT director, COUNT(*) AS movie_count
+        SELECT COUNT(*) AS movie_count
         FROM dim_movies
-        WHERE director = %s
-        GROUP BY director;
+        WHERE %s = ANY(director);
     """
 
-    # 某演员主演电影数量（按 actor_id）
+    # 某演员主演电影数量（按 "\ufeffactor_id"）
     MOVIES_BY_ACTOR_STARRING = """
         SELECT m.movie_id, m.title, m.release_date
         FROM dim_movies m
@@ -214,8 +223,11 @@ class OpenGaussQueries:
 
     REVIEWS_BY_MOVIE_ID = """
         SELECT
+            review_id,
             movie_id,
             user_id,
+            profile_name,
+            helpfulness,
             score,
             review_time,
             review_summary,
@@ -237,7 +249,6 @@ class OpenGaussQueries:
         JOIN movie_actor ma2 ON ma1.movie_id = ma2.movie_id
         WHERE ma1.actor_id < ma2.actor_id
         GROUP BY ma1.actor_id, ma2.actor_id
-        HAVING COUNT(*) >= %s
         ORDER BY collaborations DESC
         LIMIT %s;
     """
@@ -247,7 +258,7 @@ class OpenGaussQueries:
         SELECT ma.actor_id, COUNT(*) AS collaborations
         FROM movie_actor ma
         JOIN dim_movies m ON ma.movie_id = m.movie_id
-        WHERE m.director = %s
+        WHERE %s = ANY(m.director)
         GROUP BY ma.actor_id
         HAVING COUNT(*) >= %s
         ORDER BY collaborations DESC

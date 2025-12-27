@@ -16,17 +16,21 @@ const QueryDashboard: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [chartConfig, setChartConfig] = useState<ChartConfig | null>(null);
-  const [database, setDatabase] = useState('hive');
+  // database 既控制“前端展示的 dataSource”，也控制“请求打到单库还是聚合接口”
+  // - aggregated：调用 /api/query/...（三库并发）
+  // - hive/opengauss/neo4j：调用 /api/query/{db}/...（单库）
+  const [database, setDatabase] = useState('aggregated');
 
   const handleQuery = async (queryType: QueryType, params: QueryParams) => {
     setLoading(true);
     setError(null);
 
     try {
-            const response = await QueryService.executeQuery(queryType, {
-        ...params,
-        database,
-      });
+      const response = await QueryService.executeQuery(
+        queryType,
+        params,
+        database as any
+      );
 
       if (response.success) {
         setQueryResult(response.data);
@@ -96,7 +100,7 @@ const QueryDashboard: React.FC = () => {
           fontSize: '28px',
           fontWeight: 'bold'
         }}>
-          🎬 电影数据仓库查询系统
+          电影数据仓库查询系统
         </h1>
         <p style={{
           margin: '8px 0 0 0',
@@ -189,7 +193,14 @@ const QueryDashboard: React.FC = () => {
                 </div>
 
                 {/* Results Display */}
-                <QueryResultDisplay results={queryResult.results} dataSource={database as DataSource} />
+                {/* 单库/聚合选择与 ReviewList 的 dataSource 不完全一致：
+                    - aggregated 不是一个真实库，这里默认用 OpenGauss 拉评论（后端 reviews-by-movie 也主要走 OpenGauss）
+                    - 单库时按所选库传递
+                */}
+                <QueryResultDisplay
+                  results={queryResult.results}
+                  dataSource={(database === 'aggregated' ? 'OpenGauss' : (database === 'opengauss' ? 'OpenGauss' : database === 'hive' ? 'Hive' : 'Neo4j')) as DataSource}
+                />
 
                 {/* Chart */}
                 {chartConfig && (

@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import type { DatabaseResults, DataSource } from '../../types/api';
+import React, { useMemo, useState } from 'react';
+import type { DatabaseResults, DataSource, DatabaseResult } from '../../types/api';
 import type { Movie } from '../../types/data';
 import MovieCard from './MovieCard';
 import MovieDetails from './MovieDetails';
@@ -10,14 +10,38 @@ interface QueryResultDisplayProps {
   dataSource: DataSource;
 }
 
+function extractMovies(db: DatabaseResult | null): Movie[] {
+  if (!db) return [];
+  return (db.result ?? []).filter((item): item is Movie =>
+    typeof item === 'object' && item !== null && 'id' in item
+  );
+}
+
 const QueryResultDisplay: React.FC<QueryResultDisplayProps> = ({ results, dataSource }) => {
   const [selectedMovie, setSelectedMovie] = useState<Movie | null>(null);
 
-  const allMovies = Object.values(results).flatMap(dbResult =>
-    dbResult.result.filter((item): item is Movie => 'id' in item)
-  );
+  // 规则：聚合查询只显示“成功 + 有效(能渲染 MovieCard) + 执行时间最短”的那个数据库返回的电影。
+  // 如果最快的库 success=true 但没有可渲染的 Movie（例如返回的是 movie_count 统计、或空结果），则自动回退到下一个库。
+  const chosenDb = useMemo(() => {
+    const candidates = Object.values(results)
+      .filter(r => r.success)
+      .map(r => ({ db: r, movies: extractMovies(r) }))
+      .filter(x => x.movies.length > 0)
+      .sort((a, b) => (a.db.execution_time ?? Number.POSITIVE_INFINITY) - (b.db.execution_time ?? Number.POSITIVE_INFINITY));
 
-  if (allMovies.length === 0) {
+    return candidates.length > 0 ? candidates[0].db : null;
+  }, [results]);
+
+  const moviesToShow = useMemo(() => extractMovies(chosenDb), [chosenDb]);
+
+  // 如果当前选择的电影不在新结果集里，清空选择，避免右侧详情显示“脏数据”
+  React.useEffect(() => {
+    if (selectedMovie && !moviesToShow.some(m => m.id === selectedMovie.id)) {
+      setSelectedMovie(null);
+    }
+  }, [moviesToShow, selectedMovie]);
+
+  if (moviesToShow.length === 0) {
     return (
       <div style={{ textAlign: 'center', padding: '2rem', color: '#666' }}>
         暂无查询结果
@@ -33,9 +57,16 @@ const QueryResultDisplay: React.FC<QueryResultDisplayProps> = ({ results, dataSo
         overflowY: 'auto',
         paddingRight: '10px',
       }}>
-        <h2 style={{ marginBottom: '1rem', color: '#374151', fontSize: '20px' }}>查询结果 ({allMovies.length} 部电影)</h2>
+        <h2 style={{ marginBottom: '1rem', color: '#374151', fontSize: '20px' }}>
+          查询结果 ({moviesToShow.length} 部电影)
+          {chosenDb ? (
+            <span style={{ marginLeft: '8px', fontSize: '12px', color: '#6b7280' }}>
+              来自：{chosenDb.database}（{chosenDb.execution_time}ms）
+            </span>
+          ) : null}
+        </h2>
         <div>
-          {allMovies.map(movie => (
+          {moviesToShow.map(movie => (
             <MovieCard
               key={movie.id}
               movie={movie}
@@ -83,4 +114,3 @@ const QueryResultDisplay: React.FC<QueryResultDisplayProps> = ({ results, dataSo
 };
 
 export default QueryResultDisplay;
-

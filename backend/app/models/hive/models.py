@@ -296,14 +296,15 @@ class HiveModel(BaseModel):
             where_conditions.append("m.title LIKE '{title}'")
             params["title"] = f"%{title}%"
         if genre:
-            where_conditions.append("'{genre}' = ANY(m.genres)")
+            # Hive 的 genres 是 ARRAY<STRING>，不能用 SQL 的 ANY 语法（那是 PostgreSQL 风格）
+            where_conditions.append("array_contains(m.genres, '{genre}')")
             params["genre"] = genre
 
         where_clause = "WHERE " + " AND ".join(where_conditions)
 
         sql = f"""
             SELECT
-                m.movie_id,
+                m.movie_id AS movie_id,
                 m.title,
                 m.release_date,
                 m.release_year,
@@ -389,26 +390,36 @@ class HiveModel(BaseModel):
                 "error": "至少提供 min_score / min_reviews 之一"
             }
 
-        where_conditions: List[str] = []
+        # 现有表：
+        # - movies_meta_dw（包含 asin/title/release_year 等）
+        # - reviews_clean_amazon（包含 asin/score，按 year/month 分区）
+        # 因此这里改为：基于 reviews_clean_amazon 聚合出每部电影的 avg_score 与 review_count，
+        # 再与 movies_meta_dw 关联拿到 title。
+        having_conditions: List[str] = []
         params: Dict[str, Any] = {}
 
         if min_score is not None:
-            where_conditions.append("avg_score >= {min_score}")
+            having_conditions.append("AVG(r.score) >= {min_score}")
             params["min_score"] = min_score
         if min_reviews is not None:
-            where_conditions.append("review_count >= {min_reviews}")
+            having_conditions.append("COUNT(1) >= {min_reviews}")
             params["min_reviews"] = min_reviews
 
-        where_clause = "WHERE " + " AND ".join(where_conditions)
+        having_clause = ""
+        if having_conditions:
+            having_clause = "HAVING " + " AND ".join(having_conditions)
 
         sql = f"""
             SELECT
-                movie_id,
-                title,
-                avg_score,
-                review_count
-            FROM fact_movie_ratings
-            {where_clause}
+                m.movie_id AS movie_id,
+                m.title AS title,
+                AVG(r.score) AS avg_score,
+                COUNT(1) AS review_count
+            FROM movie_dw.movies_meta_dw m
+            JOIN movie_dw.reviews_clean_amazon r
+              ON r.product_id = m.movie_id
+            GROUP BY m.movie_id, m.title
+            {having_clause}
             ORDER BY avg_score DESC, review_count DESC
         """
 
@@ -446,12 +457,10 @@ class HiveModel(BaseModel):
         })
 
     def get_director_actor_collaborations(self, director: str, min_collaborations: int = 1, limit: int = 10) -> QueryResult:
-        """查询导演与演员的合作关系"""
-        return self.execute_query(HiveQueries.DIRECTOR_ACTOR_COLLABORATIONS, {
-            'director': director,
-            'min_collaborations': min_collaborations,
-            'limit': limit
-        })
+        """查询导演与演员的合作关系（兼容旧接口：min_collaborations 将被忽略）"""
+        # 兼容旧签名：显式标记该参数不使用
+        _ = min_collaborations
+        return self.get_director_actor_collaborations_by_director(director=director, limit=limit)
 
     def get_director_actor_collaborations_by_director(
         self,
@@ -460,7 +469,8 @@ class HiveModel(BaseModel):
     ) -> QueryResult:
         """导演-演员合作关系（仅要求导演名称）
 
-        说明：前端只要求 director 必填；合作次数阈值在后端固定为 1。
+        与 init.hql 对齐：movies_meta_dw.director 是 ARRAY<STRING>，因此在 HiveQueries 中用 explode(director) 过滤。
+        本方法不再依赖 min_collaborations。
         """
         if not director:
             return {
@@ -472,7 +482,6 @@ class HiveModel(BaseModel):
 
         return self.execute_query(HiveQueries.DIRECTOR_ACTOR_COLLABORATIONS, {
             'director': director,
-            'min_collaborations': 1,
             'limit': limit
         })
 

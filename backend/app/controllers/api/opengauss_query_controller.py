@@ -1,24 +1,39 @@
-"""
-查询API控制器
+"""OpenGauss 单库查询 Controller
+
+为什么需要这个文件？
+- 之前后端只有“聚合查询”（三库并发），前端无法真正做到“只查某一个库”。
+- 该文件提供 OpenGauss 专用的单库查询路由：/api/query/opengauss/...
+
+实现方式：
+- Controller 只做：参数解析/校验 -> 调用 QueryAggregator.execute_on_one('opengauss', method_name, **params) -> jsonify 返回。
+- QueryAggregator.execute_on_one() 内部会复用 _execute_single()：
+  - 负责 with service 连接/断开
+  - 捕获异常并返回统一结构
+
+返回结构约定（单库统一格式）：
+{
+  "success": true,
+  "query_type": "...",
+  "parameters": { ... },
+  "database": "opengauss",
+  "result": {
+    "data": [...],
+    "execution_time": 12.3,
+    "success": true,
+    "error": null
+  }
+}
 
 说明：
-- 统一返回结构：results 为 AggregatedQueryResult
-  其中 QueryResult / AggregatedQueryResult 定义在 app.models.base.base_model
-- Controller 只负责：参数解析/校验 -> 调用 QueryAggregator.execute_on_all -> jsonify 返回
-
-额外：
-- /reviews-by-movie：按前端 fetchReviews() 预期返回 { total, data }
+- 聚合查询仍由 backend/app/controllers/api/query_controller.py 提供，路径 /api/query/...
+- 单库查询由本文件提供，路径 /api/query/opengauss/...
 """
 
 from flask import Blueprint, request, jsonify
 
-from app.models.base.base_model import AggregatedQueryResult
 from app.services.query.query_aggregator import QueryAggregator
-from app.models.opengauss.queries import OpenGaussQueries
 
-query_bp = Blueprint('query', __name__)
-
-# 初始化服务
+opengauss_query_bp = Blueprint('opengauss_query', __name__)
 query_service = QueryAggregator()
 
 
@@ -49,17 +64,8 @@ def _require_at_least_one(params: dict) -> None:
         raise ValueError("至少需要提供一个查询参数")
 
 
-@query_bp.route('/health', methods=['GET'])
-def health_check():
-    """健康检查接口"""
-    return jsonify({
-        'status': 'healthy',
-        'service': 'Movie Data Warehouse API'
-    })
-
-
 # 1) 按时间查询电影：year/quarter/month/week 可选但至少一个
-@query_bp.route('/movies-by-time', methods=['GET'])
+@opengauss_query_bp.route('/movies-by-time', methods=['GET'])
 def movies_by_time():
     try:
         year = _get_int('year')
@@ -71,35 +77,38 @@ def movies_by_time():
             'year': year,
             'quarter': quarter,
             'month': month,
-            'week': week
+            'week': week,
         }
         _require_at_least_one(params)
 
-        results: AggregatedQueryResult = query_service.execute_on_all(
+        result = query_service.execute_on_one(
+            'opengauss',
             'get_movies_by_time',
             year=year,
             quarter=quarter,
             month=month,
-            week=week
+            week=week,
         )
 
         return jsonify({
             'success': True,
             'query_type': 'movies_by_time',
             'parameters': params,
-            'results': results
+            'database': 'opengauss',
+            'result': result,
         })
 
     except Exception as e:
         return jsonify({
             'success': False,
             'query_type': 'movies_by_time',
-            'error': str(e)
+            'database': 'opengauss',
+            'error': str(e),
         }), 400
 
 
 # 2) 按人员查询电影：director/actor/starring 可选但至少一个
-@query_bp.route('/movies-by-person', methods=['GET'])
+@opengauss_query_bp.route('/movies-by-person', methods=['GET'])
 def movies_by_person():
     try:
         director = _get_str('director')
@@ -109,34 +118,37 @@ def movies_by_person():
         params = {
             'director': director,
             'actor': actor,
-            'starring': starring
+            'starring': starring,
         }
         _require_at_least_one(params)
 
-        results: AggregatedQueryResult = query_service.execute_on_all(
+        result = query_service.execute_on_one(
+            'opengauss',
             'get_movies_by_person',
             director=director,
             actor=actor,
-            starring=starring
+            starring=starring,
         )
 
         return jsonify({
             'success': True,
             'query_type': 'movies_by_person',
             'parameters': params,
-            'results': results
+            'database': 'opengauss',
+            'result': result,
         })
 
     except Exception as e:
         return jsonify({
             'success': False,
             'query_type': 'movies_by_person',
-            'error': str(e)
+            'database': 'opengauss',
+            'error': str(e),
         }), 400
 
 
 # 3) 按属性查询电影：title/genre 可选但至少一个
-@query_bp.route('/movies-by-property', methods=['GET'])
+@opengauss_query_bp.route('/movies-by-property', methods=['GET'])
 def movies_by_property():
     try:
         title = _get_str('title')
@@ -144,33 +156,36 @@ def movies_by_property():
 
         params = {
             'title': title,
-            'genre': genre
+            'genre': genre,
         }
         _require_at_least_one(params)
 
-        results: AggregatedQueryResult = query_service.execute_on_all(
+        result = query_service.execute_on_one(
+            'opengauss',
             'get_movies_by_property',
             title=title,
-            genre=genre
+            genre=genre,
         )
 
         return jsonify({
             'success': True,
             'query_type': 'movies_by_property',
             'parameters': params,
-            'results': results
+            'database': 'opengauss',
+            'result': result,
         })
 
     except Exception as e:
         return jsonify({
             'success': False,
             'query_type': 'movies_by_property',
-            'error': str(e)
+            'database': 'opengauss',
+            'error': str(e),
         }), 400
 
 
 # 4) 按高评分查询电影：min_score/min_reviews 可选但至少一个
-@query_bp.route('/high-rated-movies', methods=['GET'])
+@opengauss_query_bp.route('/high-rated-movies', methods=['GET'])
 def high_rated_movies():
     try:
         min_score = _get_float('min_score')
@@ -178,33 +193,36 @@ def high_rated_movies():
 
         params = {
             'min_score': min_score,
-            'min_reviews': min_reviews
+            'min_reviews': min_reviews,
         }
         _require_at_least_one(params)
 
-        results: AggregatedQueryResult = query_service.execute_on_all(
+        result = query_service.execute_on_one(
+            'opengauss',
             'get_high_rated_movies_dynamic',
             min_score=min_score,
-            min_reviews=min_reviews
+            min_reviews=min_reviews,
         )
 
         return jsonify({
             'success': True,
             'query_type': 'high_rated_movies',
             'parameters': params,
-            'results': results
+            'database': 'opengauss',
+            'result': result,
         })
 
     except Exception as e:
         return jsonify({
             'success': False,
             'query_type': 'high_rated_movies',
-            'error': str(e)
+            'database': 'opengauss',
+            'error': str(e),
         }), 400
 
 
-# 5) 演员-演员合作关系：仅 min_collaborations 必填（全局合作对）
-@query_bp.route('/actor-collaborations', methods=['GET'])
+# 5) 演员-演员合作关系：min_collaborations 必填
+@opengauss_query_bp.route('/actor-collaborations', methods=['GET'])
 def actor_actor_collaborations():
     try:
         min_collaborations = _get_int('min_collaborations')
@@ -217,37 +235,44 @@ def actor_actor_collaborations():
 
         params = {
             'min_collaborations': min_collaborations,
-            'limit': limit
+            'limit': limit,
         }
 
-        results: AggregatedQueryResult = query_service.execute_on_all(
+        result = query_service.execute_on_one(
+            'opengauss',
             'get_actor_actor_collaborations',
             min_collaborations=min_collaborations,
-            limit=limit
+            limit=limit,
         )
 
         return jsonify({
             'success': True,
             'query_type': 'actor_actor_collaborations',
             'parameters': params,
-            'results': results
+            'database': 'opengauss',
+            'result': result,
         })
 
     except Exception as e:
         return jsonify({
             'success': False,
             'query_type': 'actor_actor_collaborations',
-            'error': str(e)
+            'database': 'opengauss',
+            'error': str(e),
         }), 400
 
 
-# 6) 导演-演员合作关系：仅 director 必填（按你的最终需求，不传 min_collaborations）
-@query_bp.route('/director-actor-collaborations', methods=['GET'])
+# 6) 导演-演员合作关系：director + min_collaborations 必填
+@opengauss_query_bp.route('/director-actor-collaborations', methods=['GET'])
 def director_actor_collaborations():
     try:
         director = _get_str('director')
         if not director:
             raise ValueError('director 参数必填')
+
+        min_collaborations = _get_int('min_collaborations')
+        if min_collaborations is None:
+            raise ValueError('min_collaborations 参数必填')
 
         limit = _get_int('limit')
         if limit is None:
@@ -255,32 +280,37 @@ def director_actor_collaborations():
 
         params = {
             'director': director,
-            'limit': limit
+            'min_collaborations': min_collaborations,
+            'limit': limit,
         }
 
-        results: AggregatedQueryResult = query_service.execute_on_all(
-            'get_director_actor_collaborations_by_director',
+        result = query_service.execute_on_one(
+            'opengauss',
+            'get_director_actor_collaborations',
             director=director,
-            limit=limit
+            min_collaborations=min_collaborations,
+            limit=limit,
         )
 
         return jsonify({
             'success': True,
             'query_type': 'director_actor_collaborations',
             'parameters': params,
-            'results': results
+            'database': 'opengauss',
+            'result': result,
         })
 
     except Exception as e:
         return jsonify({
             'success': False,
             'query_type': 'director_actor_collaborations',
-            'error': str(e)
+            'database': 'opengauss',
+            'error': str(e),
         }), 400
 
 
 # 7) 组合查询电影：year/director/actor/min_score/genre 至少一个
-@query_bp.route('/movies-by-combined-query', methods=['GET'])
+@opengauss_query_bp.route('/movies-by-combined-query', methods=['GET'])
 def movies_by_combined_query():
     try:
         year = _get_int('year')
@@ -294,89 +324,33 @@ def movies_by_combined_query():
             'director': director,
             'actor': actor,
             'min_score': min_score,
-            'genre': genre
+            'genre': genre,
         }
         _require_at_least_one(params)
 
-        results: AggregatedQueryResult = query_service.execute_on_all(
+        result = query_service.execute_on_one(
+            'opengauss',
             'get_movies_by_multi_condition',
             year=year,
             director=director,
             actor=actor,
             min_score=min_score,
-            genre=genre
+            genre=genre,
         )
 
         return jsonify({
             'success': True,
             'query_type': 'movies_by_combined_query',
             'parameters': params,
-            'results': results
+            'database': 'opengauss',
+            'result': result,
         })
 
     except Exception as e:
         return jsonify({
             'success': False,
             'query_type': 'movies_by_combined_query',
-            'error': str(e)
+            'database': 'opengauss',
+            'error': str(e),
         }), 400
 
-
-# Reviews: 前端 fetchReviews() 期望返回 { total, data }
-@query_bp.route('/reviews-by-movie', methods=['GET'])
-def reviews_by_movie():
-    """获取指定电影的评论（分页）
-
-    兼容前端 QueryService.fetchReviews：
-    - 入参：movie_id 或 asin 或 title（至少一个）
-    - 返回：{ total: number, data: Review[] }
-
-    注意：不同数据库 review 表结构可能不一致。
-    这里优先以 OpenGauss 的 fact_reviews 为准；如 OpenGauss 失败，返回空。
-    """
-    try:
-        movie_id = _get_str('movie_id')
-        asin = _get_str('asin')
-        title = _get_str('title')
-
-        page = _get_int('page') or 1
-        page_size = _get_int('pageSize') or 20
-        if page < 1:
-            page = 1
-        if page_size < 1:
-            page_size = 20
-
-        if not any([movie_id, asin, title]):
-            raise ValueError('movie_id/asin/title 至少提供一个')
-
-        # 方案A：仅使用 OpenGauss 的 fact_reviews 返回评论明细（不参与三库性能对比）
-        # 说明：movie_id/asin 都视为 fact_reviews.movie_id
-        target_movie_id = movie_id or asin
-
-        if not target_movie_id:
-            raise ValueError('方案A要求提供 movie_id 或 asin')
-
-        offset = (page - 1) * page_size
-
-        with query_service.opengauss_service as s:
-            # 1) total
-            total_res = s.model.execute_query(OpenGaussQueries.REVIEWS_COUNT_BY_MOVIE_ID, (target_movie_id,))
-            total = 0
-            if total_res.get('success') and total_res.get('data'):
-                total = int(total_res['data'][0].get('total', 0))
-
-            # 2) page data
-            data_res = s.model.execute_query(OpenGaussQueries.REVIEWS_BY_MOVIE_ID, (target_movie_id, page_size, offset))
-            rows = data_res.get('data') if data_res.get('success') else []
-
-        return jsonify({
-            'total': total,
-            'data': rows or []
-        })
-
-    except Exception as e:
-        return jsonify({
-            'total': 0,
-            'data': [],
-            'error': str(e)
-        }), 400

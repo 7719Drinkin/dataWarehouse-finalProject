@@ -26,45 +26,22 @@ class OpenGaussModel(BaseModel):
     """
 
     def connect(self):
-        """
-        建立数据库连接。
-        使用 OpenGaussConnection 的 health_check 方法验证连接是否可用。
-        """
+        """建立数据库连接。"""
         if not self.is_connected():
             self._connected = OpenGaussConnection.health_check()
 
     def disconnect(self):
-        """
-        断开数据库连接。
-        由于连接池管理，不需要显式关闭连接，只更新状态标记。
-        """
+        """断开数据库连接。"""
         self._connected = False
 
     def _validate_connection(self):
-        """
-        内部方法：验证连接是否已建立。
-        若未连接，则抛出 ConnectionError 异常。
-        """
+        """验证连接是否已建立。"""
         if not self.is_connected():
             raise ConnectionError("OpenGauss connection is not established")
 
     def execute_query(self, query: str, params: QueryParams = None) -> QueryResult:
-        """
-        执行查询操作，并返回字典列表形式，同时记录查询日志。
-
-        参数:
-            query (str): SQL 查询语句
-            params (QueryParams): 查询参数，支持元组或 None
-
-        返回:
-            {
-                [dict(row) for row in results]: 查询结果，每行以字典形式表示
-                float: 执行时间记录
-                bool: 是否查询成功
-            }
-        """
+        """执行查询并返回统一结构，同时记录性能日志。"""
         self._validate_connection()
-        # OpenGauss 支持 tuple（psycopg2 风格）以及 dict（%(name)s 风格）两种参数形式
         query_params = params if isinstance(params, (tuple, dict, type(None))) else ()
         query_id = DatabaseUtils.generate_query_id("opengauss_query", params if isinstance(params, dict) else {})
         start_time = datetime.now()
@@ -79,7 +56,6 @@ class OpenGaussModel(BaseModel):
             end_time = datetime.now()
             execution_time = (end_time - start_time).total_seconds()
 
-            # 日志（保持你现在的逻辑）
             DatabaseUtils.log_query_performance(
                 query_id=query_id,
                 db_type="OpenGauss",
@@ -108,20 +84,7 @@ class OpenGaussModel(BaseModel):
             raise
 
     def execute_non_query(self, query: str, params: QueryParams = None) -> int:
-        """
-        执行非查询操作（INSERT, UPDATE, DELETE 等），并提交事务。
-
-        参数:
-            query (str): SQL 操作语句
-            params (QueryParams): 操作参数，支持元组或 None
-
-        返回:
-            int: 受影响的行数
-
-        异常:
-            ConnectionError: 未建立连接时抛出
-            Exception: 操作执行失败时抛出
-        """
+        """执行非查询并提交事务。"""
         self._validate_connection()
         query_params = params if isinstance(params, (tuple, type(None))) else ()
         with OpenGaussConnection.get_connection() as conn:
@@ -153,29 +116,19 @@ class OpenGaussModel(BaseModel):
         """查询指定日期上映的电影"""
         return self.execute_query(OpenGaussQueries.MOVIES_BY_DAY, (day,))
 
-    # --------------- Model 层示例 -----------------
     def get_movies_by_time(
-            self,
-            year: Optional[int] = None,
-            quarter: Optional[int] = None,
-            month: Optional[int] = None,
-            week: Optional[int] = None
+        self,
+        year: Optional[int] = None,
+        quarter: Optional[int] = None,
+        month: Optional[int] = None,
+        week: Optional[int] = None
     ) -> QueryResult:
-        """时间维度动态查询
-        参数:
-            year: 年份
-            quarter: 季度
-            month: 月份
-            week: 周
-
-        返回:
-            QueryResult: 查询结果，包含电影数量
-        """
+        """时间维度动态查询：返回电影数量。"""
         if not any([year, quarter, month, week]):
             raise ValueError("至少提供 year / quarter / month / week 之一")
 
         where_conditions = []
-        params = {}
+        params: Dict[str, Any] = {}
 
         if year is not None:
             where_conditions.append("release_year = %(year)s")
@@ -192,7 +145,6 @@ class OpenGaussModel(BaseModel):
 
         where_clause = "WHERE " + " AND ".join(where_conditions)
 
-        # 取你希望聚合的维度，这里简单统计电影数
         sql = f"""
             SELECT
                 COUNT(*) AS movie_count
@@ -255,137 +207,68 @@ class OpenGaussModel(BaseModel):
         actor: Optional[str] = None,
         starring: Optional[str] = None
     ) -> QueryResult:
-        """按人员查询电影（director/actor/starring 任意组合，但至少一个）
-
-        参数语义：
-        - director：导演名（dim_movies.director）
-        - actor：参演演员名（dim_actors.actor_name，对应 movie_actor 任意记录）
-        - starring：主演演员名（dim_actors.actor_name + movie_actor.is_lead = TRUE）
-        """
+        """按人员查询电影（director/actor/starring 任意组合，但至少一个）"""
         if not any([director, actor, starring]):
             raise ValueError("至少提供 director / actor / starring 之一")
 
-        where_conditions: List[str] = []
+        where_conditions = []
         params: Dict[str, Any] = {}
 
-        if director:
-            where_conditions.append("m.director = %(director)s")
+        # 注意：dim_movies.director 是 TEXT[]，不能写成 m.director = 'xxx'
+        # 正确写法：'%(director)s = ANY(m.director)'
+        if director is not None:
+            where_conditions.append("%(director)s = ANY(m.director)")
             params["director"] = director
 
-        # starring：必须限定 is_lead
-        if starring:
-            where_conditions.append("(a.actor_name = %(starring)s AND ma.is_lead = TRUE)")
-            params["starring"] = starring
-
-        # actor：参演（不限 is_lead）
-        if actor:
+        # actor / starring 通过 movie_actor + dim_actors 关联来过滤（你没有把 actors/starring 存在 dim_movies 里）
+        if actor is not None:
             where_conditions.append("a.actor_name = %(actor)s")
             params["actor"] = actor
+
+        if starring is not None:
+            where_conditions.append("a.actor_name = %(starring)s AND ma.is_lead = TRUE")
+            params["starring"] = starring
 
         where_clause = "WHERE " + " AND ".join(where_conditions)
 
         sql = OpenGaussQueries.MOVIES_BY_PERSON_TEMPLATE.format(where_clause=where_clause)
-
         return self.execute_query(sql, params)
-
-    def get_movies_by_genre(self, genre: str) -> QueryResult:
-        """按电影类型查询电影列表"""
-        return self.execute_query(OpenGaussQueries.MOVIES_BY_GENRE, (genre,))
 
     def get_movies_by_property(
         self,
         title: Optional[str] = None,
         genre: Optional[str] = None
     ) -> QueryResult:
-        """按属性查询电影（title / genre 至少一个）"""
+        """按属性查询电影（title/genre 任意组合，但至少一个）"""
         if not any([title, genre]):
             raise ValueError("至少提供 title / genre 之一")
 
-        where_conditions: List[str] = []
+        where_conditions = []
         params: Dict[str, Any] = {}
 
-        if title:
-            where_conditions.append("m.title ILIKE %(title)s")
+        if title is not None:
+            where_conditions.append("title ILIKE %(title)s")
             params["title"] = f"%{title}%"
-        if genre:
-            where_conditions.append("%(genre)s = ANY(m.genres)")
+        if genre is not None:
+            where_conditions.append("%(genre)s = ANY(genres)")
             params["genre"] = genre
 
         where_clause = "WHERE " + " AND ".join(where_conditions)
 
         sql = f"""
             SELECT
-                m.movie_id,
-                m.title,
-                m.release_date,
-                m.release_year,
-                m.genres
-            FROM dim_movies m
+                movie_id AS id,
+                title,
+                release_date,
+                director,
+                genres,
+                0::numeric AS rating,
+                0::int AS review_count
+            FROM dim_movies
             {where_clause}
-            ORDER BY m.release_date DESC
+            LIMIT 200;
         """
 
-        return self.execute_query(sql, params)
-
-    def get_movies_by_multi_condition(
-        self,
-        director: Optional[str] = None,
-        genre: Optional[str] = None,
-        year: Optional[int] = None,
-        min_score: Optional[float] = None,
-        actor: Optional[str] = None
-    ) -> QueryResult:
-        """
-        多条件组合查询电影
-
-        支持的可选过滤条件：
-            - director: 导演名称
-            - genre: 类型名称
-            - year: 上映年份
-            - min_score: 最低平均评分
-            - actor: 演员ID（主演或参演）
-
-        返回：
-            QueryResult: 满足条件的电影列表，包含电影ID、名称、上映日期、平均评分和评论数
-
-        示例：
-            get_movies_by_multi_condition(director="张艺谋", genre="动作", year=2023, min_score=4.0, actor=101)
-        """
-
-        # 动态构建 WHERE 条件
-        where_conditions = []
-        params: Dict[str, Any] = {}
-
-        if director:
-            where_conditions.append("m.director = %(director)s")
-            params["director"] = director
-        if genre:
-            where_conditions.append("%(genre)s = ANY(m.genres)")
-            params["genre"] = genre
-        if year:
-            where_conditions.append("m.release_year = %(year)s")
-            params["year"] = year
-        if actor:
-            where_conditions.append("a.actor_name = %(actor_name)s")
-            params["actor_name"] = actor
-
-        where_clause = ""
-        if where_conditions:
-            where_clause = "WHERE " + " AND ".join(where_conditions)
-
-        # 动态构建 HAVING 条件
-        having_clause = ""
-        if min_score is not None:
-            having_clause = "HAVING AVG(r.score) >= %(min_score)s"
-            params["min_score"] = min_score
-
-        # 生成最终 SQL
-        sql = OpenGaussQueries.MOVIES_BY_MULTI_CONDITION_TEMPLATE.format(
-            where_clause=where_clause,
-            having_clause=having_clause
-        )
-
-        # 执行查询
         return self.execute_query(sql, params)
 
     # ===========================
@@ -400,30 +283,41 @@ class OpenGaussModel(BaseModel):
         min_score: Optional[float] = None,
         min_reviews: Optional[int] = None
     ) -> QueryResult:
-        """高评分电影动态查询（min_score / min_reviews 至少一个）"""
+        """高评分电影动态查询（min_score / min_reviews 至少一个）
+
+        重要：
+        - 你的 OpenGauss 建表中没有 fact_movie_ratings。
+        - 因此这里用 fact_reviews 聚合得到每部电影的 avg_score 与 review_count。
+        - 用 dim_movies 拿 title。
+        """
         if min_score is None and min_reviews is None:
             raise ValueError("至少提供 min_score / min_reviews 之一")
 
-        where_conditions: List[str] = []
+        having_conditions: List[str] = []
         params: Dict[str, Any] = {}
 
         if min_score is not None:
-            where_conditions.append("avg_score >= %(min_score)s")
+            having_conditions.append("AVG(r.score) >= %(min_score)s")
             params["min_score"] = min_score
         if min_reviews is not None:
-            where_conditions.append("review_count >= %(min_reviews)s")
+            having_conditions.append("COUNT(*) >= %(min_reviews)s")
             params["min_reviews"] = min_reviews
 
-        where_clause = "WHERE " + " AND ".join(where_conditions)
+        having_clause = ""
+        if having_conditions:
+            having_clause = "HAVING " + " AND ".join(having_conditions)
 
         sql = f"""
             SELECT
-                movie_id,
-                title,
-                avg_score,
-                review_count
-            FROM fact_movie_ratings
-            {where_clause}
+                m.movie_id AS movie_id,
+                m.title AS title,
+                AVG(r.score) AS avg_score,
+                COUNT(*) AS review_count
+            FROM dim_movies m
+            JOIN fact_reviews r
+              ON r.movie_id = m.movie_id
+            GROUP BY m.movie_id, m.title
+            {having_clause}
             ORDER BY avg_score DESC, review_count DESC
         """
 
@@ -445,11 +339,7 @@ class OpenGaussModel(BaseModel):
         min_collaborations: int,
         limit: int = 20
     ) -> QueryResult:
-        """演员-演员合作关系（合作超过几次）
-
-        说明：按现有 OpenGaussQueries.ACTOR_COLLABORATIONS 基于 movie_actor 聚合。
-        前端只要求传 min_collaborations；limit 为后端可选参数（默认20）。
-        """
+        """演员-演员合作关系（合作超过几次）"""
         return self.execute_query(
             OpenGaussQueries.ACTOR_COLLABORATIONS,
             (min_collaborations, limit)
@@ -460,10 +350,7 @@ class OpenGaussModel(BaseModel):
         director: str,
         limit: int = 20
     ) -> QueryResult:
-        """导演-演员合作关系（仅要求导演名称）
-
-        说明：前端只要求 director 必填；合作次数阈值在后端固定为 1。
-        """
+        """导演-演员合作关系（仅要求导演名称）"""
         if not director:
             raise ValueError("director 不能为空")
 
@@ -479,5 +366,3 @@ class OpenGaussModel(BaseModel):
     def get_popular_actor_combinations_by_genre(self, genre: str, limit: int = 10) -> QueryResult:
         """查询某类型电影中最受欢迎的演员组合"""
         return self.execute_query(OpenGaussQueries.POPULAR_ACTOR_COMBINATIONS_BY_GENRE, (genre, limit))
-
-

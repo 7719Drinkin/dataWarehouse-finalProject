@@ -14,6 +14,9 @@ class QueryAggregator:
     - 不在 Aggregator 层做时间统计
     - execution_time 完全来自 Model 层
     - 结果结构直接返回给前端
+
+    额外：
+    - 提供 execute_on_one 用于单库查询（供单库 Controller 复用）
     """
 
     def __init__(self):
@@ -21,6 +24,27 @@ class QueryAggregator:
         self.opengauss_service = OpenGaussService()
         self.hive_service = HiveService()
         self.neo4j_service = Neo4jService()
+
+    def execute_on_one(self, db_name: str, method_name: str, **params) -> Dict[str, Any]:
+        """在指定的单个数据库上执行查询。
+
+        返回结构与 execute_on_all 中各库的 value 一致：
+        { "data": [...], "execution_time": 0.12, "success": True, "error"?: str }
+        """
+        db = db_name.lower()
+
+        if db == 'opengauss':
+            service = self.opengauss_service
+        elif db == 'hive':
+            service = self.hive_service
+        elif db == 'neo4j':
+            service = self.neo4j_service
+        else:
+            raise ValueError(f'Unknown database: {db_name}')
+
+        res = self._execute_single(db, service, method_name, **params)
+        res.pop('db', None)
+        return res
 
     def _execute_single(
         self,
