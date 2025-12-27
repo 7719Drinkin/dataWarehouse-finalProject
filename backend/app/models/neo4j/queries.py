@@ -62,6 +62,22 @@ class Neo4jQueries:
         RETURN m.title AS movie, COUNT(r) AS review_count, AVG(r.score) AS avg_score
     """
 
+    # 按时间动态查询电影
+    MOVIES_BY_TIME_DYNAMIC_TEMPLATE = """
+        MATCH (m:Movie)
+        {where_clause}
+        OPTIONAL MATCH (m)<-[:REVIEWS]-(r:Review)
+        WITH m, COUNT(r) AS review_count, COALESCE(AVG(r.score), 0) AS rating
+        RETURN
+            m.movie_id AS movie_id,
+            m.title AS title,
+            m.director AS director,
+            m.genres AS genres,
+            review_count,
+            rating
+        ORDER BY rating DESC
+    """
+
     # ===========================
     # 二、电影维度查询/统计
     # ===========================
@@ -201,5 +217,3 @@ class Neo4jQueries:
         ORDER BY movies DESC
         LIMIT $limit
     """
-
-

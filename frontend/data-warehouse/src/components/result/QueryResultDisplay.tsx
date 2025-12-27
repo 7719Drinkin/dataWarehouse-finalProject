@@ -11,25 +11,27 @@ interface QueryResultDisplayProps {
 }
 
 function extractMovies(db: DatabaseResult | null): Movie[] {
-  if (!db) return [];
-  return (db.result ?? []).filter((item): item is Movie =>
-    typeof item === 'object' && item !== null && 'id' in item
-  );
+  if (!db || !db.result || !db.success) return [];
+  // 后端返回 movie_id，前端 Movie 类型使用 id，这里做映射
+  // 同时为缺失的必填字段提供默认值，确保组件能正确渲染
+  return (db.result ?? []).map((item: any) => ({
+    actors: item.actors || [],
+    release_date: item.release_date || '',
+    ...item,
+    id: item.movie_id,
+  }));
 }
 
 const QueryResultDisplay: React.FC<QueryResultDisplayProps> = ({ results, dataSource }) => {
   const [selectedMovie, setSelectedMovie] = useState<Movie | null>(null);
 
-  // 规则：聚合查询只显示“成功 + 有效(能渲染 MovieCard) + 执行时间最短”的那个数据库返回的电影。
-  // 如果最快的库 success=true 但没有可渲染的 Movie（例如返回的是 movie_count 统计、或空结果），则自动回退到下一个库。
+  // 规则：强制只显示 opengauss 的数据
   const chosenDb = useMemo(() => {
-    const candidates = Object.values(results)
-      .filter(r => r.success)
-      .map(r => ({ db: r, movies: extractMovies(r) }))
-      .filter(x => x.movies.length > 0)
-      .sort((a, b) => (a.db.execution_time ?? Number.POSITIVE_INFINITY) - (b.db.execution_time ?? Number.POSITIVE_INFINITY));
-
-    return candidates.length > 0 ? candidates[0].db : null;
+    const opengaussResult = results.OpenGauss;
+    if (opengaussResult && opengaussResult.success) {
+      return opengaussResult;
+    }
+    return null;
   }, [results]);
 
   const moviesToShow = useMemo(() => extractMovies(chosenDb), [chosenDb]);

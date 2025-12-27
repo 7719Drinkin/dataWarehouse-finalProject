@@ -10,3 +10,4 @@ warehouse/docker/hadoop-3.3.5.tar.gz
 warehouse/docker/spark-3.5.7-bin-hadoop3-scala2.13.tgz
 
 __pycache__/
+backend/logs/query.log

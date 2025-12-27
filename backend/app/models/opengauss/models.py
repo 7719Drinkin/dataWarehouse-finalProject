@@ -154,6 +154,30 @@ class OpenGaussModel(BaseModel):
 
         return self.execute_query(sql, params)
 
+    def get_movies_by_time_dynamic(self, filters: Dict[str, Any]) -> QueryResult:
+        """按时间维度动态查询电影列表，并包含评分和评论数。"""
+        where_conditions = []
+        params: Dict[str, Any] = {}
+
+        time_filters = {
+            'year': 'm.release_year = %(year)s',
+            'quarter': 'm.release_quarter = %(quarter)s',
+            'month': 'm.release_month = %(month)s',
+            'week': 'm.release_week = %(week)s'
+        }
+
+        for key, value in filters.items():
+            if value is not None and key in time_filters:
+                where_conditions.append(time_filters[key])
+                params[key] = value
+
+        where_clause = ""
+        if where_conditions:
+            where_clause = "WHERE " + " AND ".join(where_conditions)
+
+        sql = OpenGaussQueries.MOVIES_BY_TIME_DYNAMIC_TEMPLATE.format(where_clause=where_clause)
+        return self.execute_query(sql, params)
+
     def get_reviews_count_by_time(self, year: int) -> QueryResult:
         """按年份统计用户评价数量"""
         return self.execute_query(OpenGaussQueries.REVIEWS_COUNT_BY_TIME, (year,))

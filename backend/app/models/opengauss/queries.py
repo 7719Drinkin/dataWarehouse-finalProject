@@ -85,6 +85,22 @@ class OpenGaussQueries:
         ORDER BY rating DESC;
     """
 
+    # 按时间动态查询电影
+    MOVIES_BY_TIME_DYNAMIC_TEMPLATE = """
+        SELECT
+            m.movie_id,
+            m.title,
+            m.director,
+            m.genres,
+            COUNT(r.review_id) AS review_count,
+            COALESCE(AVG(r.score), 0) AS rating
+        FROM dim_movies m
+        LEFT JOIN fact_reviews r ON m.movie_id = r.movie_id
+        {where_clause}
+        GROUP BY m.movie_id, m.title, m.director, m.genres
+        ORDER BY rating DESC;
+    """
+
     # ===========================
     # 电影维度查询/统计
     # ===========================

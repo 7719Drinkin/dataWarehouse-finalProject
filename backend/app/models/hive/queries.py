@@ -66,6 +66,22 @@ class HiveQueries:
         ORDER BY avg_score DESC
     """
 
+    # 按时间动态查询电影
+    MOVIES_BY_TIME_DYNAMIC_TEMPLATE = """
+        SELECT
+            m.movie_id,
+            m.title,
+            m.director,
+            m.genres,
+            COUNT(1) AS review_count,
+            NVL(AVG(r.score), 0) AS rating
+        FROM movie_dw.movies_meta_dw m
+        LEFT JOIN movie_dw.reviews_clean_amazon r ON m.movie_id = r.product_id
+        {where_clause}
+        GROUP BY m.movie_id, m.title, m.director, m.genres
+        ORDER BY rating DESC
+    """
+
     # =======================
     # 二、电影维度查询/统计
     # =======================

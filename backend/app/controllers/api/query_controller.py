@@ -76,11 +76,8 @@ def movies_by_time():
         _require_at_least_one(params)
 
         results: AggregatedQueryResult = query_service.execute_on_all(
-            'get_movies_by_time',
-            year=year,
-            quarter=quarter,
-            month=month,
-            week=week
+            'get_movies_by_time_dynamic',
+            filters=params
         )
 
         return jsonify({

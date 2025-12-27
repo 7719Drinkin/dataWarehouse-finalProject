@@ -42,6 +42,10 @@ class Neo4jService:
         """按时间维度动态查询（year/quarter/month/week 至少一个）"""
         return self.model.get_movies_by_time(year=year, quarter=quarter, month=month, week=week)
 
+    def get_movies_by_time_dynamic(self, filters: dict) -> QueryResult:
+        """按时间维度动态查询电影"""
+        return self.model.get_movies_by_time_dynamic(filters=filters)
+
     def get_movies_count_by_month(self) -> QueryResult:
         """按月份统计电影数量"""
         return self.model.get_movies_count_by_month()
