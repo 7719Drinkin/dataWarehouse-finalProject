@@ -2,14 +2,19 @@
 数据库工具类
 """
 import time
+import logging
 from typing import Any, Dict, List, Callable, Optional
+from logger_setup import setup_query_logger
 from contextlib import contextmanager
+
+from pathlib import Path
 
 class DatabaseUtils:
     """数据库相关工具
-    
+
     提供数据库连接管理、重试机制、参数验证等实用工具。
     """
+    logger = setup_query_logger()
 
     @staticmethod
     @contextmanager
@@ -191,12 +196,10 @@ class DatabaseUtils:
         """
         status = "SUCCESS" if success else "FAILED"
         time_str = DatabaseUtils.format_execution_time(execution_time)
-
         log_entry = f"[QUERY] {query_id} | {db_type} | {status} | {time_str}"
         if error:
             log_entry += f" | ERROR: {error}"
-
-        print(log_entry)  # 在生产环境中应该使用适当的日志系统
+        logger.info(log_entry)
 
     @staticmethod
     def compare_result_consistency(
