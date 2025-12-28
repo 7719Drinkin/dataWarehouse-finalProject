@@ -283,25 +283,35 @@ class OpenGaussQueries:
     # 演员合作统计
     ACTOR_COLLABORATIONS = """
         SELECT
-            ma1.actor_id AS actor1,
-            ma2.actor_id AS actor2,
-            COUNT(*) AS collaborations
+            a1.actor_name AS actor1,
+            a2.actor_name AS actor2,
+            COUNT(DISTINCT ma1.movie_id) AS collaborations
         FROM movie_actor ma1
-        JOIN movie_actor ma2 ON ma1.movie_id = ma2.movie_id
-        WHERE ma1.actor_id < ma2.actor_id
-        GROUP BY ma1.actor_id, ma2.actor_id
-        HAVING COUNT(*) >= %s
+        JOIN movie_actor ma2
+          ON ma1.movie_id = ma2.movie_id
+         AND ma1.actor_id < ma2.actor_id
+        JOIN dim_actors a1
+          ON a1.actor_id = ma1.actor_id
+        JOIN dim_actors a2
+          ON a2.actor_id = ma2.actor_id
+        GROUP BY a1.actor_name, a2.actor_name
+        HAVING COUNT(DISTINCT ma1.movie_id) >= %s
         ORDER BY collaborations DESC
         LIMIT %s;
     """
 
     # 导演与演员合作次数
     DIRECTOR_ACTOR_COLLABORATIONS = """
-        SELECT ma.actor_id, COUNT(*) AS collaborations
+        SELECT
+            a.actor_name AS actor,
+            COUNT(*) AS collaborations
         FROM movie_actor ma
-        JOIN dim_movies m ON ma.movie_id = m.movie_id
+        JOIN dim_movies m
+          ON ma.movie_id = m.movie_id
+        JOIN dim_actors a
+          ON a.actor_id = ma.actor_id
         WHERE %s = ANY(m.director)
-        GROUP BY ma.actor_id
+        GROUP BY a.actor_name
         HAVING COUNT(*) >= %s
         ORDER BY collaborations DESC
         LIMIT %s;

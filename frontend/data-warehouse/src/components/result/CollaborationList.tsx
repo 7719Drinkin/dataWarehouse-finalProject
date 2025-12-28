@@ -70,7 +70,7 @@ const CollaborationList: React.FC<CollaborationListProps> = ({ title, rows }) =>
               <th style={{ textAlign: 'left', padding: '8px', borderBottom: '1px solid #e5e7eb' }}>对象1</th>
               <th style={{ textAlign: 'left', padding: '8px', borderBottom: '1px solid #e5e7eb' }}>对象2</th>
               <th style={{ textAlign: 'right', padding: '8px', borderBottom: '1px solid #e5e7eb' }}>合作次数</th>
-              <th style={{ textAlign: 'left', padding: '8px', borderBottom: '1px solid #e5e7eb' }}>相关电影</th>
+
             </tr>
           </thead>
           <tbody>
@@ -85,9 +85,7 @@ const CollaborationList: React.FC<CollaborationListProps> = ({ title, rows }) =>
                   <td style={{ padding: '8px', borderBottom: '1px solid #f3f4f6' }}>{left || '-'}</td>
                   <td style={{ padding: '8px', borderBottom: '1px solid #f3f4f6' }}>{right || '-'}</td>
                   <td style={{ padding: '8px', borderBottom: '1px solid #f3f4f6', textAlign: 'right' }}>{row.collaboration_count}</td>
-                  <td style={{ padding: '8px', borderBottom: '1px solid #f3f4f6', color: '#6b7280' }}>
-                    {movies.length > 0 ? movies.slice(0, 5).join('，') : '-'}
-                  </td>
+
                 </tr>
               );
             })}

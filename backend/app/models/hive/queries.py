@@ -233,6 +233,7 @@ class HiveQueries:
         ),
         pairs AS (
           SELECT
+            e1.movie_id,
             e1.actor AS a1,
             e2.actor AS a2
           FROM exploded e1
@@ -241,12 +242,12 @@ class HiveQueries:
            AND e1.pos < e2.pos
         )
         SELECT
-          a1,
-          a2,
-          COUNT(1) AS collaborations
+          a1 AS actor1,
+          a2 AS actor2,
+          COUNT(DISTINCT movie_id) AS collaborations
         FROM pairs
         GROUP BY a1, a2
-        HAVING COUNT(1) >= {min_collaborations}
+        HAVING COUNT(DISTINCT movie_id) >= {min_collaborations}
         ORDER BY collaborations DESC
         LIMIT {limit}
     """

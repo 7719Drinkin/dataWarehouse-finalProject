@@ -66,11 +66,23 @@ const QueryResultDisplay: React.FC<QueryResultDisplayProps> = ({ results, dataSo
   // - movies_by_person 强制展示 neo4j（你之前的需求）
   // - 其他查询默认展示 opengauss（保持现状，便于调试）
   const chosenDb = useMemo(() => {
+    // 1. movies_by_person 强制 Neo4j
     if (queryType === 'movies_by_person') {
       const neo4jResult = (results as any).neo4j || (results as any).Neo4j;
       if (neo4jResult && neo4jResult.success) return neo4jResult;
     }
 
+    // 2. 演员/导演合作关系 强制 Hive（数据更可读）
+    if (
+      queryType === 'actor_collaborations' ||
+      queryType === 'actor_actor_collaborations' ||
+      queryType === 'director_actor_collaborations'
+    ) {
+      const hiveResult = (results as any).hive || (results as any).Hive;
+      if (hiveResult && hiveResult.success) return hiveResult;
+    }
+
+    // 3. 其他查询默认 OpenGauss
     const opengaussResult = (results as any).opengauss || (results as any).OpenGauss;
     if (opengaussResult && opengaussResult.success) {
       return opengaussResult;
@@ -79,12 +91,16 @@ const QueryResultDisplay: React.FC<QueryResultDisplayProps> = ({ results, dataSo
   }, [results, queryType]);
 
   // --------- 非电影列表查询：合作关系 ---------
-  if (queryType === 'actor_collaborations' || queryType === 'director_actor_collaborations') {
+  const isCollaborationQuery = queryType === 'actor_collaborations'
+    || queryType === 'actor_actor_collaborations'
+    || queryType === 'director_actor_collaborations';
+
+  if (isCollaborationQuery) {
     const rows = extractRows(chosenDb);
 
     return (
       <CollaborationList
-        title={queryType === 'actor_collaborations' ? '演员-演员合作关系' : '导演-演员合作关系'}
+        title={(queryType === 'actor_collaborations' || queryType === 'actor_actor_collaborations') ? '演员-演员合作关系' : '导演-演员合作关系'}
         rows={rows}
       />
     );

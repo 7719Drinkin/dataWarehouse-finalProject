@@ -73,7 +73,10 @@ const ReviewList: React.FC<ReviewListProps> = ({ movieId, dataSource }) => {
   return (
     <div style={{ backgroundColor: 'white', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
       {reviews.map(review => (
-        <ReviewItem key={review.asin} review={review} />
+        <ReviewItem
+          key={(review as any).review_id ?? `${review.asin}-${review.user_id}-${review.review_time}`}
+          review={review}
+        />
       ))}
 
       {pagination.hasMore && (
