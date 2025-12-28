@@ -1,0 +1,104 @@
+version: '3.8'
+
+services:
+  backend:
+    build: .
+    ports:
+      - "5000:5000"
+    environment:
+      - FLASK_ENV=development
+      - FLASK_HOST=0.0.0.0
+      - FLASK_PORT=5000
+      # OpenGauss数据库配置
+      - OPENGAUSS_HOST=139.196.151.22
+      - OPENGAUSS_PORT=5432
+      - OPENGAUSS_USER=gaussdb
+      - OPENGAUSS_PASSWORD=GaussDB@2025
+      - OPENGAUSS_DATABASE=movie_dw
+      # Hive配置
+      - HIVE_HOST=139.196.151.22
+      - HIVE_PORT=10000
+      - HIVE_USER=hive
+      - HIVE_DATABASE=default
+      # Neo4j配置
+      - NEO4J_URI=bolt://139.196.151.22:7687
+      - NEO4J_USER=neo4j
+      - NEO4J_PASSWORD=neo4j_password
+      # 超时和连接池配置
+      - CONNECTION_TIMEOUT=30
+      - QUERY_TIMEOUT=300
+      - OPENGAUSS_POOL_MIN_CONN=1
+      - OPENGAUSS_POOL_MAX_CONN=10
+    volumes:
+      - .:/app
+      - /app/__pycache__
+    networks:
+      - bigdata
+    restart: unless-stopped
+    depends_on:
+      # 确保数据库服务先启动（尽管是外部服务，但声明依赖关系）
+      - opengauss
+      - hive-server
+      - neo4j
+
+  # 外部数据库服务的引用（用于depends_on）
+  opengauss:
+    image: opengauss/opengauss-server:latest
+    container_name: opengauss
+    environment:
+      - GS_PASSWORD=GaussDB@2025
+    ports:
+      - "5432:5432"
+    networks:
+      - bigdata
+    profiles:
+      - external  # 只有在需要时才启动
+
+  hive-server:
+    image: apache/hive:4.0.0
+    container_name: hive-server
+    environment:
+      - SERVICE_NAME=hiveserver2
+    ports:
+      - "10000:10000"
+    depends_on:
+      - hadoop-spark
+    networks:
+      - bigdata
+    profiles:
+      - external
+
+  hadoop-spark:
+    image: hdfs-spark:latest
+    container_name: hadoop-spark
+    environment:
+      - CLUSTER_NAME=single-node
+      - HDFS_NAMENODE=true
+      - HDFS_DATANODE=true
+      - SPARK_MODE=master
+    ports:
+      - "9870:9870"
+      - "8081:8080"
+      - "7077:7077"
+    networks:
+      - bigdata
+    profiles:
+      - external
+
+  neo4j:
+    image: neo4j:latest
+    container_name: neo4j
+    environment:
+      - NEO4J_AUTH=neo4j/neo4j_password
+    ports:
+      - "7474:7474"
+      - "7687:7687"
+    networks:
+      - bigdata
+    profiles:
+      - external
+
+networks:
+  bigdata:
+    external: true
+    name: bigdata
