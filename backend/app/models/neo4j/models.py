@@ -431,57 +431,45 @@ class Neo4jModel(BaseModel):
 
     def get_movies_by_multi_condition(
         self,
-        director: Optional[str] = None,
-        genre: Optional[str] = None,
         year: Optional[int] = None,
-        min_score: Optional[float] = None,
-        actor: Optional[str] = None
+        director: Optional[str] = None,
+        starring: Optional[str] = None,
+        actor: Optional[str] = None,
+        title: Optional[str] = None
     ) -> QueryResult:
-        """
-        Neo4j 多条件组合查询
-
-        可选参数：
-            - director: 导演名称
-            - genre: 类型名称
-            - year: 上映年份
-            - min_score: 最低平均评分
-            - actor: 演员名
-
-        返回：
-            QueryResult: 电影列表
-        """
-        where_clauses = []
+        """Neo4j 多条件组合查询（year/director/starring/actor/title）"""
+        where_clauses: List[str] = []
         params: Dict[str, Any] = {}
 
-        # where_clause 中允许引用的变量由 queries.py 模板声明：m, d, a
+        if year is not None:
+            where_clauses.append("m.release_year = $year")
+            params["year"] = year
+
         if director:
             where_clauses.append("d.name CONTAINS $director")
             params["director"] = director
-        if genre:
-            where_clauses.append("$genre IN m.genres")
-            params["genre"] = genre
-        if year:
-            where_clauses.append("m.release_year = $year")
-            params["year"] = year
+
+        # starring：限定主演（ai.is_lead = true）
+        if starring:
+            where_clauses.append("a.name CONTAINS $starring AND ai.is_lead = true")
+            params["starring"] = starring
+
         if actor:
             where_clauses.append("a.name CONTAINS $actor")
             params["actor"] = actor
+
+        if title:
+            where_clauses.append("toLower(m.title) CONTAINS toLower($title)")
+            params["title"] = title
 
         where_cypher = ""
         if where_clauses:
             where_cypher = "WHERE " + " AND ".join(where_clauses)
 
-        # 注意：queries.py 模板已经负责从 RATED 关系聚合出 rating/review_count。
-        # 这里的 having_clause 只负责对聚合后的 rating 做阈值过滤。
-        having_cypher = ""
-        if min_score is not None:
-            having_cypher = "WHERE rating >= $min_score"
-            params["min_score"] = min_score
-
-        # 新实现：使用 queries.py 中的 MOVIES_BY_MULTI_CONDITION_TEMPLATE（已对齐 DIRECTED/ACTED_IN/RATED 图模型）
+        # 旧参数 min_score 已移除：不再对 rating 做阈值过滤
         query = Neo4jQueries.MOVIES_BY_MULTI_CONDITION_TEMPLATE.format(
             where_clause=where_cypher,
-            having_clause=having_cypher
+            having_clause=""
         )
         return self.execute_query(query, params)
 

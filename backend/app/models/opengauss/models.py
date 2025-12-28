@@ -7,6 +7,8 @@ OpenGauss数据模型
 3. 用户评价相关查询
 4. 演员-导演关系查询
 注：溯源查询在应用中不实现
+
+（注：本文件未实现 get_movies_by_multi_condition；该能力在 Service/Queries 层通过模板SQL实现）
 """
 
 from typing import Any, Dict, List, Optional
@@ -293,6 +295,50 @@ class OpenGaussModel(BaseModel):
             {where_clause}
             LIMIT 200;
         """
+
+        return self.execute_query(sql, params)
+
+    def get_movies_by_multi_condition(
+        self,
+        year: Optional[int] = None,
+        director: Optional[str] = None,
+        starring: Optional[str] = None,
+        actor: Optional[str] = None,
+        title: Optional[str] = None
+    ) -> QueryResult:
+        """OpenGauss 多条件组合查询（year/director/starring/actor/title）"""
+        if not any([year, director, starring, actor, title]):
+            raise ValueError("至少提供 year/director/starring/actor/title 之一")
+
+        where_conditions: List[str] = []
+        params: Dict[str, Any] = {}
+
+        if year is not None:
+            where_conditions.append("m.release_year = %(year)s")
+            params["year"] = year
+
+        if director:
+            where_conditions.append("%(director)s = ANY(m.director)")
+            params["director"] = director
+
+        if starring:
+            where_conditions.append("a.actor_name ILIKE %(starring)s AND ma.is_lead = TRUE")
+            params["starring"] = f"%{starring}%"
+
+        if actor:
+            where_conditions.append("a.actor_name ILIKE %(actor)s")
+            params["actor"] = f"%{actor}%"
+
+        if title:
+            where_conditions.append("m.title ILIKE %(title)s")
+            params["title"] = f"%{title}%"
+
+        where_clause = "WHERE " + " AND ".join(where_conditions)
+
+        sql = OpenGaussQueries.MOVIES_BY_MULTI_CONDITION_TEMPLATE.format(
+            where_clause=where_clause,
+            having_clause=""
+        )
 
         return self.execute_query(sql, params)
 

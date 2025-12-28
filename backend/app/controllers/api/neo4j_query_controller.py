@@ -198,16 +198,17 @@ def director_actor_collaborations():
         return jsonify({'success': False, 'query_type': 'director_actor_collaborations', 'database': 'neo4j', 'error': str(e)}), 400
 
 
+# 7) 组合查询电影：year/director/starring/actor/title 至少一个
 @neo4j_query_bp.route('/movies-by-combined-query', methods=['GET'])
 def movies_by_combined_query():
     try:
         year = _get_int('year')
         director = _get_str('director')
+        starring = _get_str('starring')
         actor = _get_str('actor')
-        min_score = _get_float('min_score')
-        genre = _get_str('genre')
+        title = _get_str('title')
 
-        params = {'year': year, 'director': director, 'actor': actor, 'min_score': min_score, 'genre': genre}
+        params = {'year': year, 'director': director, 'starring': starring, 'actor': actor, 'title': title}
         _require_at_least_one(params)
 
         result = query_service.execute_on_one(
@@ -215,9 +216,9 @@ def movies_by_combined_query():
             'get_movies_by_multi_condition',
             year=year,
             director=director,
+            starring=starring,
             actor=actor,
-            min_score=min_score,
-            genre=genre,
+            title=title,
         )
 
         return jsonify({'success': True, 'query_type': 'movies_by_combined_query', 'parameters': params, 'database': 'neo4j', 'result': result})

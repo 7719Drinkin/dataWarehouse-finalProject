@@ -370,41 +370,40 @@ class HiveModel(BaseModel):
 
     def get_movies_by_multi_condition(
         self,
-        director: Optional[str] = None,
-        genre: Optional[str] = None,
         year: Optional[int] = None,
-        min_score: Optional[float] = None,
-        actor: Optional[str] = None
+        director: Optional[str] = None,
+        starring: Optional[str] = None,
+        actor: Optional[str] = None,
+        title: Optional[str] = None
     ) -> QueryResult:
-        """Hive 多条件组合查询"""
+        """Hive 多条件组合查询（前端参数：year/director/starring/actor/title）"""
         where_conditions = []
         params: Dict[str, Any] = {}
 
+        if year is not None:
+            where_conditions.append("m.release_year = {year}")
+            params["year"] = year
         if director:
             where_conditions.append("array_contains(m.director, '{director}')")
             params["director"] = director
-        if genre:
-            where_conditions.append("array_contains(m.genres, '{genre}')")
-            params["genre"] = genre
-        if year:
-            where_conditions.append("m.release_year = {year}")
-            params["year"] = year
+        if starring:
+            where_conditions.append("array_contains(m.starring, '{starring}')")
+            params["starring"] = starring
         if actor:
             where_conditions.append("array_contains(m.actors, '{actor}')")
             params["actor"] = actor
+        if title:
+            where_conditions.append("lower(m.title) LIKE lower('{title_like}')")
+            params["title_like"] = f"%{title}%"
 
         where_clause = ""
         if where_conditions:
             where_clause = "WHERE " + " AND ".join(where_conditions)
 
-        having_clause = ""
-        if min_score is not None:
-            having_clause = "WHERE rating >= {min_score}"
-            params["min_score"] = min_score
-
+        # 旧参数 min_score 已移除：不再对评分做阈值过滤
         sql = HiveQueries.MOVIES_BY_MULTI_CONDITION_TEMPLATE.format(
             where_clause=where_clause,
-            having_clause=having_clause
+            having_clause=""
         )
 
         return self.execute_query(sql, params)

@@ -297,22 +297,22 @@ def director_actor_collaborations():
         }), 400
 
 
-# 7) 组合查询电影：year/director/actor/min_score/genre 至少一个
+# 7) 组合查询电影：year/director/starring/actor/title 至少一个
 @hive_query_bp.route('/movies-by-combined-query', methods=['GET'])
 def movies_by_combined_query():
     try:
         year = _get_int('year')
         director = _get_str('director')
+        starring = _get_str('starring')
         actor = _get_str('actor')
-        min_score = _get_float('min_score')
-        genre = _get_str('genre')
+        title = _get_str('title')
 
         params = {
             'year': year,
             'director': director,
+            'starring': starring,
             'actor': actor,
-            'min_score': min_score,
-            'genre': genre,
+            'title': title,
         }
         _require_at_least_one(params)
 
@@ -321,9 +321,9 @@ def movies_by_combined_query():
             'get_movies_by_multi_condition',
             year=year,
             director=director,
+            starring=starring,
             actor=actor,
-            min_score=min_score,
-            genre=genre,
+            title=title,
         )
 
         return jsonify({

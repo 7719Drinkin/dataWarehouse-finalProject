@@ -90,9 +90,7 @@ class QueryAggregator:
         self,
         method_name: str,
         director: Optional[str] = None,
-        genre: Optional[str] = None,
         year: Optional[int] = None,
-        min_score: Optional[float] = None,
         actor: Optional[str] = None,
         **kwargs
     ) -> AggregatedQueryResult:
@@ -127,9 +125,7 @@ class QueryAggregator:
 
         for k, v in {
             "director": director,
-            "genre": genre,
             "year": year,
-            "min_score": min_score,
             "actor": actor,
         }.items():
             if v is not None:

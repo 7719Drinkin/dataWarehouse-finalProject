@@ -97,20 +97,20 @@ class HiveService:
 
     def get_movies_by_multi_condition(
         self,
-        director: Optional[str] = None,
-        genre: Optional[str] = None,
         year: Optional[int] = None,
-        min_score: Optional[float] = None,
-        actor: Optional[str] = None
+        director: Optional[str] = None,
+        starring: Optional[str] = None,
+        actor: Optional[str] = None,
+        title: Optional[str] = None
     ) -> QueryResult:
-        """调用 HiveModel 的多条件查询"""
+        """调用 HiveModel 的多条件查询（year/director/starring/actor/title）"""
         with self.model as m:
             return m.get_movies_by_multi_condition(
-                director=director,
-                genre=genre,
                 year=year,
-                min_score=min_score,
-                actor=actor
+                director=director,
+                starring=starring,
+                actor=actor,
+                title=title
             )
 
     # =========================

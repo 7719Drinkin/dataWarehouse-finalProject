@@ -111,7 +111,7 @@ const QueryForm: React.FC<QueryFormProps> = ({
             {createInput('导演', 'director', 'text', '可选')}
                         {createInput('主演', 'starring_actor', 'text', '可选')}
             {createInput('参演', 'participating_actor', 'text', '可选')}
-            {createInput('类别', 'genre', 'text', '可选')}
+            {createInput('标题', 'movie_title', 'text', '可选')}
           </div>
         );
 
