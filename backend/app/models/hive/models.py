@@ -256,9 +256,12 @@ class HiveModel(BaseModel):
     ) -> QueryResult:
         """按人员查询电影（director/actor/starring 任意组合，但至少一个）
 
-        修复点：
-        - 避免 Calcite/HS2 对子查询 EXISTS 的兼容性问题（你遇到的 10004）
-        - 使用 LATERAL VIEW explode(...) 方式做数组字段的过滤（director/actors/starring 均为 ARRAY<STRING>）
+        兼容性修复（针对你当前的 HS2/Calcite 报错 10085）：
+        - HS2 不支持 "JOIN with a LATERAL VIEW"：即 FROM 后带 LATERAL VIEW 再 JOIN
+        - 解决方案：先在子查询里用 LATERAL VIEW 过滤出电影集合（filtered_movies），
+          再在外层 LEFT JOIN reviews_clean_amazon 做聚合统计。
+
+        返回结构不变：movie_id/title/director/genres/review_count/rating
         """
         if not any([director, actor, starring]):
             return {
@@ -294,22 +297,28 @@ class HiveModel(BaseModel):
         if predicates:
             where_clause = "WHERE " + " AND ".join(predicates)
 
-        # 将 lateral views + where clause 拼到查询中
-        # 注意：这里不再使用 HiveQueries.MOVIES_BY_PERSON_TEMPLATE（它只支持 {where_clause}），
-        # 而是直接构造完整 SQL，确保 LATERAL VIEW 在 FROM 之后。
         sql = f"""
-            SELECT
+            WITH filtered_movies AS (
+              SELECT DISTINCT
                 m.movie_id,
                 m.title,
                 m.director,
-                m.genres,
-                COUNT(1) AS review_count,
-                NVL(AVG(r.score), 0) AS rating
-            FROM movie_dw.movies_meta_dw m
-            {' '.join(lateral_views)}
-            LEFT JOIN movie_dw.reviews_clean_amazon r ON m.movie_id = r.product_id
-            {where_clause}
-            GROUP BY m.movie_id, m.title, m.director, m.genres
+                m.genres
+              FROM movie_dw.movies_meta_dw m
+              {' '.join(lateral_views)}
+              {where_clause}
+            )
+            SELECT
+              fm.movie_id,
+              fm.title,
+              fm.director,
+              fm.genres,
+              COUNT(1) AS review_count,
+              NVL(AVG(r.score), 0) AS rating
+            FROM filtered_movies fm
+            LEFT JOIN movie_dw.reviews_clean_amazon r
+              ON fm.movie_id = r.product_id
+            GROUP BY fm.movie_id, fm.title, fm.director, fm.genres
             ORDER BY rating DESC
         """
 
@@ -390,7 +399,7 @@ class HiveModel(BaseModel):
 
         having_clause = ""
         if min_score is not None:
-            having_clause = "HAVING AVG(r.score) >= {min_score}"
+            having_clause = "WHERE rating >= {min_score}"
             params["min_score"] = min_score
 
         sql = HiveQueries.MOVIES_BY_MULTI_CONDITION_TEMPLATE.format(

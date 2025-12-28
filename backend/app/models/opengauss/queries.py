@@ -282,11 +282,15 @@ class OpenGaussQueries:
 
     # 演员合作统计
     ACTOR_COLLABORATIONS = """
-        SELECT ma1.actor_id AS actor1, ma2.actor_id AS actor2, COUNT(*) AS collaborations
+        SELECT
+            ma1.actor_id AS actor1,
+            ma2.actor_id AS actor2,
+            COUNT(*) AS collaborations
         FROM movie_actor ma1
         JOIN movie_actor ma2 ON ma1.movie_id = ma2.movie_id
         WHERE ma1.actor_id < ma2.actor_id
         GROUP BY ma1.actor_id, ma2.actor_id
+        HAVING COUNT(*) >= %s
         ORDER BY collaborations DESC
         LIMIT %s;
     """

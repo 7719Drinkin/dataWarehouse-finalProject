@@ -125,17 +125,45 @@ class HiveQueries:
     """
 
     MOVIES_BY_MULTI_CONDITION_TEMPLATE = """
-        SELECT
+        WITH filtered_movies AS (
+          SELECT
             m.movie_id,
             m.title,
             m.director,
-            m.genres,
-            NVL(AVG(r.score), 0) AS rating,
-            COUNT(1) AS review_count
-        FROM movie_dw.movies_meta_dw m
-        LEFT JOIN movie_dw.reviews_clean_amazon r ON m.movie_id = r.product_id
-        {where_clause}
-        GROUP BY m.movie_id, m.title, m.director, m.genres
+            m.genres
+          FROM movie_dw.movies_meta_dw m
+          {where_clause}
+        ),
+        reviews_agg AS (
+          SELECT
+            r.product_id AS movie_id,
+            COUNT(1) AS review_count,
+            AVG(r.score) AS avg_score
+          FROM movie_dw.reviews_clean_amazon r
+          JOIN filtered_movies fm
+            ON fm.movie_id = r.product_id
+          GROUP BY r.product_id
+        ),
+        joined AS (
+          SELECT
+            fm.movie_id,
+            fm.title,
+            fm.director,
+            fm.genres,
+            NVL(ra.avg_score, 0) AS rating,
+            NVL(ra.review_count, 0) AS review_count
+          FROM filtered_movies fm
+          LEFT JOIN reviews_agg ra
+            ON fm.movie_id = ra.movie_id
+        )
+        SELECT
+          movie_id,
+          title,
+          director,
+          genres,
+          rating,
+          review_count
+        FROM joined
         {having_clause}
         ORDER BY rating DESC
     """
@@ -177,15 +205,16 @@ class HiveQueries:
     # 四、演员-导演关系查询
     # =======================
     ACTOR_COLLABORATIONS = """
-        SELECT a1, a2, COUNT(*) AS collaborations
-        FROM (
-            SELECT EXPLODE(actors) AS a1
-            FROM movie_dw.movies_meta_dw
-        ) t1
-        LATERAL VIEW EXPLODE(actors) AS a2
+        SELECT
+            a1,
+            a2,
+            COUNT(1) AS collaborations
+        FROM movie_dw.movies_meta_dw m
+        LATERAL VIEW explode(m.actors) lv1 AS a1
+        LATERAL VIEW explode(m.actors) lv2 AS a2
         WHERE a1 < a2
         GROUP BY a1, a2
-        HAVING COUNT(*) >= {min_collaborations}
+        HAVING COUNT(1) >= {min_collaborations}
         ORDER BY collaborations DESC
         LIMIT {limit}
     """

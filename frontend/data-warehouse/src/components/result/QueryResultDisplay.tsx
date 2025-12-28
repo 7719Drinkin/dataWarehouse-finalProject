@@ -11,6 +11,34 @@ interface QueryResultDisplayProps {
   queryType?: string;
 }
 
+function toStringArray(v: unknown): string[] {
+  if (Array.isArray(v)) {
+    return v.filter((x): x is string => typeof x === 'string');
+  }
+
+  if (typeof v === 'string') {
+    const s = v.trim();
+
+    // 兼容后端把数组序列化成字符串，如 "[]" / "[\"A\",\"B\"]"
+    if (s.startsWith('[') && s.endsWith(']')) {
+      try {
+        const parsed = JSON.parse(s);
+        return Array.isArray(parsed) ? parsed.filter((x): x is string => typeof x === 'string') : [];
+      } catch {
+        return [];
+      }
+    }
+
+    // 兼容 "a,b,c" 或 "a|b|c"
+    return s
+      .split(/[|,]/)
+      .map(x => x.trim())
+      .filter(Boolean);
+  }
+
+  return [];
+}
+
 function extractMovies(db: DatabaseResult | null): Movie[] {
   if (!db || !db.success) return [];
   // 后端（聚合结果）使用 data 字段
@@ -22,6 +50,8 @@ function extractMovies(db: DatabaseResult | null): Movie[] {
     release_date: item.release_date || '',
     ...item,
     id: item.id ?? item.movie_id,
+    genres: toStringArray(item.genres),
+    director: toStringArray(item.director),
   }));
 }
 
