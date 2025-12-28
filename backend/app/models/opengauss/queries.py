@@ -182,28 +182,44 @@ class OpenGaussQueries:
 
     # 多条件组合查询（可选参数：director, genre, year, min_score, actor_name）
     MOVIES_BY_MULTI_CONDITION_TEMPLATE = """
-        SELECT m.movie_id, m.title, m.release_date, AVG(r.score) AS avg_score, COUNT(r.review_id) AS review_count
+        SELECT
+            m.movie_id,
+            m.title,
+            m.director,
+            m.genres,
+            COALESCE(AVG(r.score), 0) AS rating,
+            COUNT(r.review_id) AS review_count
         FROM dim_movies m
         LEFT JOIN fact_reviews r ON m.movie_id = r.movie_id
         LEFT JOIN movie_actor ma ON m.movie_id = ma.movie_id
         LEFT JOIN dim_actors a ON ma.actor_id = a.actor_id
         {where_clause}
-        GROUP BY m.movie_id, m.title, m.release_date
+        GROUP BY m.movie_id, m.title, m.director, m.genres
         {having_clause}
-        ORDER BY avg_score DESC;
+        ORDER BY rating DESC;
     """
 
     # 按人员查询电影（可选参数：director, actor_name, starring_name）
     MOVIES_BY_PERSON_TEMPLATE = """
-        SELECT DISTINCT
+        WITH FilteredMovies AS (
+            SELECT DISTINCT m.movie_id
+            FROM dim_movies m
+            LEFT JOIN movie_actor ma ON m.movie_id = ma.movie_id
+            LEFT JOIN dim_actors a ON ma.actor_id = a.actor_id
+            {where_clause}
+        )
+        SELECT
             m.movie_id,
             m.title,
-            m.release_date
+            m.director,
+            m.genres,
+            COUNT(r.review_id) AS review_count,
+            COALESCE(AVG(r.score), 0) AS rating
         FROM dim_movies m
-        LEFT JOIN movie_actor ma ON m.movie_id = ma.movie_id
-        LEFT JOIN dim_actors a ON ma.actor_id = a.actor_id
-        {where_clause}
-        ORDER BY m.release_date DESC;
+        JOIN FilteredMovies fm ON m.movie_id = fm.movie_id
+        LEFT JOIN fact_reviews r ON m.movie_id = r.movie_id
+        GROUP BY m.movie_id, m.title, m.director, m.genres
+        ORDER BY rating DESC;
     """
 
     # ===========================
@@ -212,12 +228,18 @@ class OpenGaussQueries:
 
     # 高评分电影（评分+评论数）
     HIGH_RATED_MOVIES = """
-        SELECT m.movie_id, m.title, AVG(r.score) AS avg_score, COUNT(r.review_id) AS review_count
+        SELECT
+            m.movie_id,
+            m.title,
+            m.director,
+            m.genres,
+            AVG(r.score) AS rating,
+            COUNT(r.review_id) AS review_count
         FROM dim_movies m
         JOIN fact_reviews r ON m.movie_id = r.movie_id
-        GROUP BY m.movie_id, m.title
+        GROUP BY m.movie_id, m.title, m.director, m.genres
         HAVING AVG(r.score) >= %s AND COUNT(r.review_id) >= %s
-        ORDER BY avg_score DESC;
+        ORDER BY rating DESC;
     """
 
     # 包含关键词的评论

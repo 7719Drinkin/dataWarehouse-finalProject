@@ -360,16 +360,23 @@ class Neo4jModel(BaseModel):
         where_conditions: List[str] = []
         params: Dict[str, Any] = {}
 
+        # 说明：Neo4j 图模型
+        # - (d:Director)-[:DIRECTED]->(m:Movie)
+        # - (a:Actor)-[ai:ACTED_IN {is_lead}]->(m:Movie)
+        # 因此 where_clause 只能使用 d/a/ai 变量（queries.py 模板中已声明）
+
         if director:
-            where_conditions.append("d.name = $director")
+            # 支持模糊匹配，避免必须完整输入导演姓名
+            where_conditions.append("d.name CONTAINS $director")
             params["director"] = director
 
         if actor:
-            where_conditions.append("a.name = $actor")
+            where_conditions.append("a.name CONTAINS $actor")
             params["actor"] = actor
 
         if starring:
-            where_conditions.append("s.name = $starring")
+            # 主演：要求 is_lead=true
+            where_conditions.append("a.name CONTAINS $starring AND ai.is_lead = true")
             params["starring"] = starring
 
         where_clause = ""
@@ -446,8 +453,9 @@ class Neo4jModel(BaseModel):
         where_clauses = []
         params: Dict[str, Any] = {}
 
+        # where_clause 中允许引用的变量由 queries.py 模板声明：m, d, a
         if director:
-            where_clauses.append("m.director = $director")
+            where_clauses.append("d.name CONTAINS $director")
             params["director"] = director
         if genre:
             where_clauses.append("$genre IN m.genres")
@@ -456,30 +464,25 @@ class Neo4jModel(BaseModel):
             where_clauses.append("m.release_year = $year")
             params["year"] = year
         if actor:
-            where_clauses.append("EXISTS((m)<-[:ACTED_IN]-(a)) AND a.name = $actor")
+            where_clauses.append("a.name CONTAINS $actor")
             params["actor"] = actor
 
         where_cypher = ""
         if where_clauses:
             where_cypher = "WHERE " + " AND ".join(where_clauses)
 
+        # 注意：queries.py 模板已经负责从 RATED 关系聚合出 rating/review_count。
+        # 这里的 having_clause 只负责对聚合后的 rating 做阈值过滤。
         having_cypher = ""
         if min_score is not None:
-            having_cypher = "WITH m, AVG(r.score) AS avg_score, COUNT(r) AS review_count WHERE avg_score >= $min_score"
+            having_cypher = "WHERE rating >= $min_score"
             params["min_score"] = min_score
-        else:
-            having_cypher = "WITH m, AVG(r.score) AS avg_score, COUNT(r) AS review_count"
 
-        query = f"""
-            MATCH (m:Movie)
-            OPTIONAL MATCH (m)<-[:REVIEWED]-(r:Review)
-            OPTIONAL MATCH (m)<-[:ACTED_IN]-(a:Actor)
-            {where_cypher}
-            {having_cypher}
-            RETURN m.movie_id AS movie_id, m.title AS title, m.release_date AS release_date, avg_score, review_count
-            ORDER BY avg_score DESC
-        """
-
+        # 新实现：使用 queries.py 中的 MOVIES_BY_MULTI_CONDITION_TEMPLATE（已对齐 DIRECTED/ACTED_IN/RATED 图模型）
+        query = Neo4jQueries.MOVIES_BY_MULTI_CONDITION_TEMPLATE.format(
+            where_clause=where_cypher,
+            having_clause=having_cypher
+        )
         return self.execute_query(query, params)
 
     # ===========================

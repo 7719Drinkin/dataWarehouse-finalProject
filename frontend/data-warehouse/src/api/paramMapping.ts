@@ -32,6 +32,11 @@ export function mapParamsToBackend(queryType: QueryType, params: QueryParams): R
         mapped['actor'] = value as any;
         return;
       }
+      // director 字段名在前后端一致，但仍需在此处处理，以防被后续通用逻辑覆盖
+      if (key === 'director') {
+        mapped['director'] = value as any;
+        return;
+      }
     }
 
     const backendKey = COMMON_MAPPING[key] || key;

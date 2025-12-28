@@ -8,31 +8,39 @@ import ReviewList from './ReviewList';
 interface QueryResultDisplayProps {
   results: DatabaseResults;
   dataSource: DataSource;
+  queryType?: string;
 }
 
 function extractMovies(db: DatabaseResult | null): Movie[] {
-  if (!db || !db.result || !db.success) return [];
+  if (!db || !db.success) return [];
+  // 后端（聚合结果）使用 data 字段
+  const rows = (db as any).data ?? (db as any).result ?? [];
+
   // 后端返回 movie_id，前端 Movie 类型使用 id，这里做映射
-  // 同时为缺失的必填字段提供默认值，确保组件能正确渲染
-  return (db.result ?? []).map((item: any) => ({
+  return (rows ?? []).map((item: any) => ({
     actors: item.actors || [],
     release_date: item.release_date || '',
     ...item,
-    id: item.movie_id,
+    id: item.id ?? item.movie_id,
   }));
 }
 
-const QueryResultDisplay: React.FC<QueryResultDisplayProps> = ({ results, dataSource }) => {
+const QueryResultDisplay: React.FC<QueryResultDisplayProps> = ({ results, dataSource, queryType }) => {
   const [selectedMovie, setSelectedMovie] = useState<Movie | null>(null);
 
-  // 规则：强制只显示 opengauss 的数据
+  // 规则：movies_by_person 强制展示 neo4j；其他查询仍使用 opengauss（保持现状，避免影响你当前调试）
   const chosenDb = useMemo(() => {
-    const opengaussResult = results.OpenGauss;
+    if (queryType === 'movies_by_person') {
+      const neo4jResult = (results as any).neo4j || (results as any).Neo4j;
+      if (neo4jResult && neo4jResult.success) return neo4jResult;
+    }
+
+    const opengaussResult = (results as any).opengauss || (results as any).OpenGauss;
     if (opengaussResult && opengaussResult.success) {
       return opengaussResult;
     }
     return null;
-  }, [results]);
+  }, [results, queryType]);
 
   const moviesToShow = useMemo(() => extractMovies(chosenDb), [chosenDb]);
 

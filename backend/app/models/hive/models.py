@@ -171,16 +171,7 @@ class HiveModel(BaseModel):
         month: Optional[int] = None,
         week: Optional[int] = None
     ) -> QueryResult:
-        """时间维度动态查询
-        参数:
-            year: 年份
-            quarter: 季度
-            month: 月份
-            week: 周
-
-        返回:
-            QueryResult: 查询结果，包含电影数量
-        """
+        """时间维度动态查询"""
         if not any([year, quarter, month, week]):
             raise ValueError("至少提供 year / quarter / month / week 之一")
 
@@ -208,7 +199,6 @@ class HiveModel(BaseModel):
             {where_clause}
         """
 
-        # HiveModel.execute_query 只接受 dict 参数→字符串替换
         return self.execute_query(sql, params)
 
     def get_movies_by_time_dynamic(self, filters: Dict[str, Any]) -> QueryResult:
@@ -264,7 +254,12 @@ class HiveModel(BaseModel):
         actor: Optional[str] = None,
         starring: Optional[str] = None
     ) -> QueryResult:
-        """按人员查询电影（director/actor/starring 任意组合，但至少一个）"""
+        """按人员查询电影（director/actor/starring 任意组合，但至少一个）
+
+        修复点：
+        - 避免 Calcite/HS2 对子查询 EXISTS 的兼容性问题（你遇到的 10004）
+        - 使用 LATERAL VIEW explode(...) 方式做数组字段的过滤（director/actors/starring 均为 ARRAY<STRING>）
+        """
         if not any([director, actor, starring]):
             return {
                 "data": [],
@@ -273,25 +268,51 @@ class HiveModel(BaseModel):
                 "error": "至少提供 director / actor / starring 之一"
             }
 
-        where_conditions: List[str] = []
         params: Dict[str, Any] = {}
+        lateral_views: List[str] = []
+        predicates: List[str] = []
 
+        # director: ARRAY<STRING>
         if director:
-            # movies_meta_dw.director 当前 queries 用 array_contains(director, ...) 写法
-            where_conditions.append("array_contains(director, '{director}')")
-            params["director"] = director
+            lateral_views.append("LATERAL VIEW explode(m.director) dd AS d")
+            predicates.append("lower(d) LIKE lower('{director_like}')")
+            params["director_like"] = f"%{director}%"
 
-        if starring:
-            where_conditions.append("array_contains(starring, '{starring}')")
-            params["starring"] = starring
-
+        # actor: ARRAY<STRING>
         if actor:
-            where_conditions.append("array_contains(actors, '{actor}')")
-            params["actor"] = actor
+            lateral_views.append("LATERAL VIEW explode(m.actors) aa AS a")
+            predicates.append("lower(a) LIKE lower('{actor_like}')")
+            params["actor_like"] = f"%{actor}%"
 
-        where_clause = "WHERE " + " AND ".join(where_conditions)
+        # starring: ARRAY<STRING>
+        if starring:
+            lateral_views.append("LATERAL VIEW explode(m.starring) ss AS s")
+            predicates.append("lower(s) LIKE lower('{starring_like}')")
+            params["starring_like"] = f"%{starring}%"
 
-        sql = HiveQueries.MOVIES_BY_PERSON_TEMPLATE.format(where_clause=where_clause)
+        where_clause = ""
+        if predicates:
+            where_clause = "WHERE " + " AND ".join(predicates)
+
+        # 将 lateral views + where clause 拼到查询中
+        # 注意：这里不再使用 HiveQueries.MOVIES_BY_PERSON_TEMPLATE（它只支持 {where_clause}），
+        # 而是直接构造完整 SQL，确保 LATERAL VIEW 在 FROM 之后。
+        sql = f"""
+            SELECT
+                m.movie_id,
+                m.title,
+                m.director,
+                m.genres,
+                COUNT(1) AS review_count,
+                NVL(AVG(r.score), 0) AS rating
+            FROM movie_dw.movies_meta_dw m
+            {' '.join(lateral_views)}
+            LEFT JOIN movie_dw.reviews_clean_amazon r ON m.movie_id = r.product_id
+            {where_clause}
+            GROUP BY m.movie_id, m.title, m.director, m.genres
+            ORDER BY rating DESC
+        """
+
         return self.execute_query(sql, params)
 
     def get_movies_by_genre(self, genre: str) -> QueryResult:
@@ -316,11 +337,9 @@ class HiveModel(BaseModel):
         params: Dict[str, Any] = {}
 
         if title:
-            # Hive 用字符串格式化，必须自行加引号并做模糊匹配
             where_conditions.append("m.title LIKE '{title}'")
             params["title"] = f"%{title}%"
         if genre:
-            # Hive 的 genres 是 ARRAY<STRING>，不能用 SQL 的 ANY 语法（那是 PostgreSQL 风格）
             where_conditions.append("array_contains(m.genres, '{genre}')")
             params["genre"] = genre
 
@@ -348,19 +367,7 @@ class HiveModel(BaseModel):
         min_score: Optional[float] = None,
         actor: Optional[str] = None
     ) -> QueryResult:
-        """
-        Hive 多条件组合查询
-
-        可选参数：
-            - director: 导演名称
-            - genre: 类型名称
-            - year: 上映年份
-            - min_score: 最低平均评分
-            - actor: 演员名
-
-        返回：
-            QueryResult: 满足条件的电影列表
-        """
+        """Hive 多条件组合查询"""
         where_conditions = []
         params: Dict[str, Any] = {}
 
@@ -374,7 +381,6 @@ class HiveModel(BaseModel):
             where_conditions.append("m.release_year = {year}")
             params["year"] = year
         if actor:
-            # 组合查询 actor 语义：不区分主演/参演，按参演演员集合过滤
             where_conditions.append("array_contains(m.actors, '{actor}')")
             params["actor"] = actor
 
@@ -393,6 +399,7 @@ class HiveModel(BaseModel):
         )
 
         return self.execute_query(sql, params)
+
     # =======================
     # 三、用户评价相关
     # =======================
@@ -414,11 +421,6 @@ class HiveModel(BaseModel):
                 "error": "至少提供 min_score / min_reviews 之一"
             }
 
-        # 现有表：
-        # - movies_meta_dw（包含 asin/title/release_year 等）
-        # - reviews_clean_amazon（包含 asin/score，按 year/month 分区）
-        # 因此这里改为：基于 reviews_clean_amazon 聚合出每部电影的 avg_score 与 review_count，
-        # 再与 movies_meta_dw 关联拿到 title。
         having_conditions: List[str] = []
         params: Dict[str, Any] = {}
 
@@ -470,19 +472,13 @@ class HiveModel(BaseModel):
         min_collaborations: int,
         limit: int = 20
     ) -> QueryResult:
-        """演员-演员合作关系（合作超过几次）
-
-        说明：基于 HiveQueries.ACTOR_COLLABORATIONS。
-        前端只要求传 min_collaborations；limit 为后端可选参数（默认20）。
-        """
+        """演员-演员合作关系（合作超过几次）"""
         return self.execute_query(HiveQueries.ACTOR_COLLABORATIONS, {
             'min_collaborations': min_collaborations,
             'limit': limit
         })
 
     def get_director_actor_collaborations(self, director: str, min_collaborations: int = 1, limit: int = 10) -> QueryResult:
-        """查询导演与演员的合作关系（兼容旧接口：min_collaborations 将被忽略）"""
-        # 兼容旧签名：显式标记该参数不使用
         _ = min_collaborations
         return self.get_director_actor_collaborations_by_director(director=director, limit=limit)
 
@@ -491,11 +487,6 @@ class HiveModel(BaseModel):
         director: str,
         limit: int = 20
     ) -> QueryResult:
-        """导演-演员合作关系（仅要求导演名称）
-
-        与 init.hql 对齐：movies_meta_dw.director 是 ARRAY<STRING>，因此在 HiveQueries 中用 explode(director) 过滤。
-        本方法不再依赖 min_collaborations。
-        """
         if not director:
             return {
                 "data": [],
@@ -508,5 +499,4 @@ class HiveModel(BaseModel):
             'director': director,
             'limit': limit
         })
-
 

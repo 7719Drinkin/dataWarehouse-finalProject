@@ -241,17 +241,18 @@ class OpenGaussModel(BaseModel):
         # 注意：dim_movies.director 是 TEXT[]，不能写成 m.director = 'xxx'
         # 正确写法：'%(director)s = ANY(m.director)'
         if director is not None:
-            where_conditions.append("%(director)s = ANY(m.director)")
-            params["director"] = director
+            # 支持模糊匹配：director 是 TEXT[]，用 UNNEST 展开后 ILIKE
+            where_conditions.append("EXISTS (SELECT 1 FROM UNNEST(m.director) AS d WHERE d ILIKE %(director)s)")
+            params["director"] = f"%{director}%"
 
         # actor / starring 通过 movie_actor + dim_actors 关联来过滤（你没有把 actors/starring 存在 dim_movies 里）
         if actor is not None:
-            where_conditions.append("a.actor_name = %(actor)s")
-            params["actor"] = actor
+            where_conditions.append("a.actor_name ILIKE %(actor)s")
+            params["actor"] = f"%{actor}%"
 
         if starring is not None:
-            where_conditions.append("a.actor_name = %(starring)s AND ma.is_lead = TRUE")
-            params["starring"] = starring
+            where_conditions.append("a.actor_name ILIKE %(starring)s AND ma.is_lead = TRUE")
+            params["starring"] = f"%{starring}%"
 
         where_clause = "WHERE " + " AND ".join(where_conditions)
 

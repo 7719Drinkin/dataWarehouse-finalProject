@@ -110,34 +110,52 @@ class HiveQueries:
     """
 
     MOVIES_BY_PERSON_TEMPLATE = """
-        SELECT *
-        FROM movie_dw.movies_meta_dw
-        {where_clause}
-    """
-
-    MOVIES_BY_MULTI_CONDITION_TEMPLATE = """
-        SELECT m.movie_id AS movie_id, m.title, m.release_date,
-               AVG(r.score) AS avg_score, COUNT(1) AS review_count
+        SELECT
+            m.movie_id,
+            m.title,
+            m.director,
+            m.genres,
+            COUNT(1) AS review_count,
+            NVL(AVG(r.score), 0) AS rating
         FROM movie_dw.movies_meta_dw m
         LEFT JOIN movie_dw.reviews_clean_amazon r ON m.movie_id = r.product_id
         {where_clause}
-        GROUP BY m.movie_id, m.title, m.release_date
+        GROUP BY m.movie_id, m.title, m.director, m.genres
+        ORDER BY rating DESC
+    """
+
+    MOVIES_BY_MULTI_CONDITION_TEMPLATE = """
+        SELECT
+            m.movie_id,
+            m.title,
+            m.director,
+            m.genres,
+            NVL(AVG(r.score), 0) AS rating,
+            COUNT(1) AS review_count
+        FROM movie_dw.movies_meta_dw m
+        LEFT JOIN movie_dw.reviews_clean_amazon r ON m.movie_id = r.product_id
+        {where_clause}
+        GROUP BY m.movie_id, m.title, m.director, m.genres
         {having_clause}
-        ORDER BY avg_score DESC
+        ORDER BY rating DESC
     """
 
     # =======================
     # 三、用户评价相关
     # =======================
     HIGH_RATED_MOVIES = """
-        SELECT m.movie_id AS movie_id, m.title,
-               COUNT(1) AS review_count,
-               AVG(r.score) AS avg_score
+        SELECT
+            m.movie_id,
+            m.title,
+            m.director,
+            m.genres,
+            AVG(r.score) AS rating,
+            COUNT(1) AS review_count
         FROM movie_dw.movies_meta_dw m
         JOIN movie_dw.reviews_clean_amazon r ON m.movie_id = r.product_id
-        GROUP BY m.movie_id, m.title
+        GROUP BY m.movie_id, m.title, m.director, m.genres
         HAVING AVG(r.score) >= {min_score} AND COUNT(1) >= {min_reviews}
-        ORDER BY avg_score DESC
+        ORDER BY rating DESC
     """
 
     REVIEWS_BY_SCORE_RANGE = """

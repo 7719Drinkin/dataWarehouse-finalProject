@@ -199,6 +199,7 @@ const QueryDashboard: React.FC = () => {
                 */}
                 <QueryResultDisplay
                   results={queryResult.results}
+                  queryType={queryResult.query_type}
                   dataSource={(database === 'aggregated' ? 'OpenGauss' : (database === 'opengauss' ? 'OpenGauss' : database === 'hive' ? 'Hive' : 'Neo4j')) as DataSource}
                 />
 
