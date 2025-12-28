@@ -21,36 +21,6 @@ PARTITIONED BY (year INT, month INT)
 STORED AS PARQUET
 LOCATION '/warehouse/clean/reviews_amazon/';
 
--- ====================================
--- Staging表(必须创建!) - 用于接收PyHive上传的数据
--- ====================================
-CREATE EXTERNAL TABLE IF NOT EXISTS reviews_csv_ext (
-  product_id STRING,
-  user_id STRING,
-  profile_name STRING,
-  helpfulness STRING,
-  score DOUBLE,
-  review_time BIGINT,
-  summary STRING,
-  text STRING
-)
-ROW FORMAT DELIMITED
-FIELDS TERMINATED BY ','
-LINES TERMINATED BY '\n'
-STORED AS TEXTFILE;        -- staging表用TEXTFILE,方便插入
-
--- 电影元数据表
-CREATE EXTERNAL TABLE IF NOT EXISTS movies_meta (
-  asin STRING,
-  title STRING,
-  release_date DATE,
-  genres ARRAY<STRING>,
-  director ARRAY<STRING>,
-  actors ARRAY<STRING>,
-  starring ARRAY<STRING>,
-  versions ARRAY<STRING>,
-  source_files ARRAY<STRING>   -- 多网页/多来源
-)
 STORED AS PARQUET
 LOCATION '/warehouse/clean/movies_meta/';
 

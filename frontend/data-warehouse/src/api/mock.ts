@@ -1,11 +1,13 @@
 import type { Movie, Review } from '../types/data';
-import type { QueryCondition, Pagination, ApiResponse, DataSource } from '../types/api';
+import type { QueryCondition, Pagination, ApiResponse, DataSource, QueryResult } from '../types/api';
+import { QueryType } from '../types/query';
+import { DataSource as DB } from '../types/api';
 
 // 模拟电影数据
 export const generateMockMovies = (count: number): Movie[] => {
   return Array.from({ length: count }, (_, i) => ({
     id: `m_${i + 1}`,
-    title: `Movie Title ${i + 1}`,
+    title: `Mock Movie Title ${i + 1}`,
     release_date: `${2020 - i}-01-01`,
     genres: ['Action', 'Adventure', 'Sci-Fi'].slice(i % 3),
     director: `Director ${i % 5}`,
@@ -31,6 +33,38 @@ export const generateMockReviews = (count: number, movieId: string): Review[] =>
     review_text: `This is the detailed review text for movie ${movieId}, review number ${i + 1}.`,
   }));
 };
+
+// 创建一个完整的、可导出的模拟查询结果
+export const mockQueryResult: QueryResult = {
+  query_type: QueryType.HIGH_RATED_MOVIES,
+  query_params: { min_score: 8.5, min_reviews: 500 },
+  total_execution_time: 450.5,
+  timestamp: new Date().toISOString(),
+  results: {
+    [DB.HIVE]: {
+      database: DB.HIVE,
+      success: true,
+      execution_time: 150.2,
+      result: generateMockMovies(5),
+      record_count: 5,
+    },
+    [DB.NEO4J]: {
+      database: DB.NEO4J,
+      success: true,
+      execution_time: 80.3,
+      result: generateMockMovies(5),
+      record_count: 5,
+    },
+    [DB.OPENGAUSS]: {
+      database: DB.OPENGAUSS,
+      success: true,
+      execution_time: 220.0,
+      result: generateMockMovies(5),
+      record_count: 5,
+    },
+  },
+};
+
 
 const allMovies = generateMockMovies(100);
 const allReviews = allMovies.reduce((acc, movie) => {

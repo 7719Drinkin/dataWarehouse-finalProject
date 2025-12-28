@@ -71,7 +71,7 @@ const MovieCard: React.FC<MovieCardProps> = ({ movie, isSelected, onSelect }) =>
           ))}
         </div>
         <div style={{ marginTop: '12px', display: 'flex', alignItems: 'center' }}>
-          <span style={{ fontSize: '16px', fontWeight: 'bold', color: '#f59e0b' }}>★ {movie.rating.toFixed(1)}</span>
+          <span style={{ fontSize: '16px', fontWeight: 'bold', color: '#f59e0b' }}>★ {Number(movie.rating ?? NaN).toFixed(1)}</span>
           <span style={{ marginLeft: '12px', fontSize: '12px', color: '#6b7280' }}>({movie.review_count} reviews)</span>
         </div>
       </div>

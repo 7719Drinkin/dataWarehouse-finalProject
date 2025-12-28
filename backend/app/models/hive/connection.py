@@ -53,3 +53,5 @@ class HiveConnection:
         except Exception:
             return False
 
+
+

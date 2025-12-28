@@ -1,23 +1,121 @@
-import React, { useState } from 'react';
-import type { DatabaseResults, DataSource } from '../../types/api';
+import React, { useMemo, useState } from 'react';
+import type { DatabaseResults, DataSource, DatabaseResult } from '../../types/api';
 import type { Movie } from '../../types/data';
 import MovieCard from './MovieCard';
 import MovieDetails from './MovieDetails';
 import ReviewList from './ReviewList';
+import CollaborationList from './CollaborationList';
 
 interface QueryResultDisplayProps {
   results: DatabaseResults;
   dataSource: DataSource;
+  queryType?: string;
 }
 
-const QueryResultDisplay: React.FC<QueryResultDisplayProps> = ({ results, dataSource }) => {
+function toStringArray(v: unknown): string[] {
+  if (Array.isArray(v)) {
+    return v.filter((x): x is string => typeof x === 'string');
+  }
+
+  if (typeof v === 'string') {
+    const s = v.trim();
+
+    // 兼容后端把数组序列化成字符串，如 "[]" / "[\"A\",\"B\"]"
+    if (s.startsWith('[') && s.endsWith(']')) {
+      try {
+        const parsed = JSON.parse(s);
+        return Array.isArray(parsed) ? parsed.filter((x): x is string => typeof x === 'string') : [];
+      } catch {
+        return [];
+      }
+    }
+
+    // 兼容 "a,b,c" 或 "a|b|c"
+    return s
+      .split(/[|,]/)
+      .map(x => x.trim())
+      .filter(Boolean);
+  }
+
+  return [];
+}
+
+function extractMovies(db: DatabaseResult | null): Movie[] {
+  if (!db || !db.success) return [];
+  const rows = (db as any).data ?? (db as any).result ?? [];
+
+  return (rows ?? []).map((item: any) => ({
+    actors: item.actors || [],
+    release_date: item.release_date || '',
+    ...item,
+    id: item.id ?? item.movie_id,
+    genres: toStringArray(item.genres),
+    director: toStringArray(item.director),
+  }));
+}
+
+function extractRows(db: DatabaseResult | null): any[] {
+  if (!db || !db.success) return [];
+  return (db as any).data ?? (db as any).result ?? [];
+}
+
+const QueryResultDisplay: React.FC<QueryResultDisplayProps> = ({ results, dataSource, queryType }) => {
   const [selectedMovie, setSelectedMovie] = useState<Movie | null>(null);
 
-  const allMovies = Object.values(results).flatMap(dbResult =>
-    dbResult.result.filter((item): item is Movie => 'id' in item)
-  );
+  // 选择一个用于“主要展示”的数据库结果：
+  // - movies_by_person 强制展示 neo4j（你之前的需求）
+  // - 其他查询默认展示 opengauss（保持现状，便于调试）
+  const chosenDb = useMemo(() => {
+    // 1. movies_by_person 强制 Neo4j
+    if (queryType === 'movies_by_person') {
+      const neo4jResult = (results as any).neo4j || (results as any).Neo4j;
+      if (neo4jResult && neo4jResult.success) return neo4jResult;
+    }
 
-  if (allMovies.length === 0) {
+    // 2. 演员/导演合作关系 强制 Hive（数据更可读）
+    if (
+      queryType === 'actor_collaborations' ||
+      queryType === 'actor_actor_collaborations' ||
+      queryType === 'director_actor_collaborations'
+    ) {
+      const hiveResult = (results as any).hive || (results as any).Hive;
+      if (hiveResult && hiveResult.success) return hiveResult;
+    }
+
+    // 3. 其他查询默认 OpenGauss
+    const opengaussResult = (results as any).opengauss || (results as any).OpenGauss;
+    if (opengaussResult && opengaussResult.success) {
+      return opengaussResult;
+    }
+    return null;
+  }, [results, queryType]);
+
+  // --------- 非电影列表查询：合作关系 ---------
+  const isCollaborationQuery = queryType === 'actor_collaborations'
+    || queryType === 'actor_actor_collaborations'
+    || queryType === 'director_actor_collaborations';
+
+  if (isCollaborationQuery) {
+    const rows = extractRows(chosenDb);
+
+    return (
+      <CollaborationList
+        title={(queryType === 'actor_collaborations' || queryType === 'actor_actor_collaborations') ? '演员-演员合作关系' : '导演-演员合作关系'}
+        rows={rows}
+      />
+    );
+  }
+
+  // --------- 电影列表查询 ---------
+  const moviesToShow = useMemo(() => extractMovies(chosenDb), [chosenDb]);
+
+  React.useEffect(() => {
+    if (selectedMovie && !moviesToShow.some(m => m.id === selectedMovie.id)) {
+      setSelectedMovie(null);
+    }
+  }, [moviesToShow, selectedMovie]);
+
+  if (moviesToShow.length === 0) {
     return (
       <div style={{ textAlign: 'center', padding: '2rem', color: '#666' }}>
         暂无查询结果
@@ -33,9 +131,16 @@ const QueryResultDisplay: React.FC<QueryResultDisplayProps> = ({ results, dataSo
         overflowY: 'auto',
         paddingRight: '10px',
       }}>
-        <h2 style={{ marginBottom: '1rem', color: '#374151', fontSize: '20px' }}>查询结果 ({allMovies.length} 部电影)</h2>
+        <h2 style={{ marginBottom: '1rem', color: '#374151', fontSize: '20px' }}>
+          查询结果 ({moviesToShow.length} 部电影)
+          {chosenDb ? (
+            <span style={{ marginLeft: '8px', fontSize: '12px', color: '#6b7280' }}>
+              来自：{(chosenDb as any).database ?? '-'}（{(chosenDb as any).execution_time}ms）
+            </span>
+          ) : null}
+        </h2>
         <div>
-          {allMovies.map(movie => (
+          {moviesToShow.map(movie => (
             <MovieCard
               key={movie.id}
               movie={movie}
@@ -83,4 +188,3 @@ const QueryResultDisplay: React.FC<QueryResultDisplayProps> = ({ results, dataSo
 };
 
 export default QueryResultDisplay;
-

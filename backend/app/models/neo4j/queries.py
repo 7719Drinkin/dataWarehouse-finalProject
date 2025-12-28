@@ -45,21 +45,43 @@ class Neo4jQueries:
 
     # 用户评价数量统计
     REVIEWS_COUNT_BY_YEAR = """
-        MATCH (r:Review)
-        RETURN r.review_year AS year, COUNT(r) AS review_count
+        MATCH (u:User)-[rt:RATED]->(m:Movie)
+        RETURN rt.review_year AS year, COUNT(rt) AS review_count
         ORDER BY year
     """
 
     REVIEWS_COUNT_BY_SCORE = """
-        MATCH (r:Review)
-        WHERE r.score >= $min_score
-        RETURN COUNT(r) AS review_count
+        MATCH (u:User)-[rt:RATED]->(m:Movie)
+        WHERE rt.score >= $min_score
+        RETURN COUNT(rt) AS review_count
     """
 
     MOVIES_REVIEWS_STATS_BY_TIME = """
-        MATCH (m:Movie)<-[:REVIEWS]-(r:Review)
+        MATCH (m:Movie)
         WHERE m.release_date >= $start_date AND m.release_date <= $end_date
-        RETURN m.title AS movie, COUNT(r) AS review_count, AVG(r.score) AS avg_score
+        OPTIONAL MATCH (u:User)-[rt:RATED]->(m)
+        RETURN m.title AS movie, COUNT(rt) AS review_count, AVG(rt.score) AS avg_score
+    """
+
+    # 按时间动态查询电影
+    MOVIES_BY_TIME_DYNAMIC_TEMPLATE = """
+        MATCH (m:Movie)
+        {where_clause}
+        OPTIONAL MATCH (u:User)-[rt:RATED]->(m)
+        OPTIONAL MATCH (d:Director)-[:DIRECTED]->(m)
+        WITH
+          m,
+          COUNT(rt) AS review_count,
+          COALESCE(AVG(rt.score), 0) AS rating,
+          COLLECT(DISTINCT d.name) AS director
+        RETURN
+          m.id AS movie_id,
+          m.title AS title,
+          director AS director,
+          COALESCE(m.genres, []) AS genres,
+          review_count,
+          rating
+        ORDER BY rating DESC
     """
 
     # ===========================
@@ -74,36 +96,37 @@ class Neo4jQueries:
     """
 
     MOVIE_REVIEWS_BY_TITLE = """
-        MATCH (m:Movie)<-[:REVIEWS]-(r:Review)
+        MATCH (m:Movie)
         WHERE m.title = $title
-        RETURN COUNT(r) AS review_count, AVG(r.score) AS avg_score
+        OPTIONAL MATCH (u:User)-[rt:RATED]->(m)
+        RETURN COUNT(rt) AS review_count, AVG(rt.score) AS avg_score
     """
 
     # 导演相关
     MOVIES_BY_DIRECTOR = """
-        MATCH (m:Movie)-[:DIRECTED_BY]->(d:Director)
+        MATCH (d:Director)-[:DIRECTED]->(m:Movie)
         WHERE d.name = $director
         RETURN m
     """
 
     DIRECTOR_MOVIE_COUNT = """
-        MATCH (m:Movie)-[:DIRECTED_BY]->(d:Director)
+        MATCH (d:Director)-[:DIRECTED]->(m:Movie)
         WHERE d.name = $director
         RETURN COUNT(m) AS movie_count
     """
 
     DIRECTOR_ACTOR_COLLABORATIONS = """
-        MATCH (d:Director)-[:DIRECTED_BY]->(m:Movie)<-[:ACTED_IN]-(a:Actor)
+        MATCH (d:Director)-[:COLLABORATED_WITH]->(a:Actor)
         WHERE d.name = $director
-        RETURN a.name AS actor, COUNT(m) AS collaborations
+        RETURN a.name AS actor, COALESCE(sum(1), 0) AS collaborations
         ORDER BY collaborations DESC
         LIMIT $limit
     """
 
     # 演员相关
     MOVIES_BY_ACTOR_STARRING = """
-        MATCH (a:Actor)-[:STARRING]->(m:Movie)
-        WHERE a.id = $actor_id
+        MATCH (a:Actor)-[ai:ACTED_IN]->(m:Movie)
+        WHERE a.id = $actor_id AND ai.is_lead = true
         RETURN m
     """
 
@@ -113,36 +136,96 @@ class Neo4jQueries:
         RETURN m
     """
 
+    # 按演员名查询（前端传 name）
+    MOVIES_BY_ACTOR_NAME_STARRING = """
+        MATCH (a:Actor)-[ai:ACTED_IN]->(m:Movie)
+        WHERE a.name = $actor_name AND ai.is_lead = true
+        RETURN m
+    """
+
+    MOVIES_BY_ACTOR_NAME_PARTICIPATED = """
+        MATCH (a:Actor)-[:ACTED_IN]->(m:Movie)
+        WHERE a.name = $actor_name
+        RETURN m
+    """
+
+    # 按人员查询（可选参数：director / actor / starring；至少一个）
+    MOVIES_BY_PERSON_TEMPLATE = """
+        MATCH (m:Movie)
+        OPTIONAL MATCH (d:Director)-[:DIRECTED]->(m)
+        OPTIONAL MATCH (a:Actor)-[ai:ACTED_IN]->(m)
+        {where_clause}
+        WITH DISTINCT m
+        OPTIONAL MATCH (u:User)-[rt:RATED]->(m)
+        OPTIONAL MATCH (d2:Director)-[:DIRECTED]->(m)
+        WITH
+          m,
+          COUNT(rt) AS review_count,
+          COALESCE(AVG(rt.score), 0) AS rating,
+          COLLECT(DISTINCT d2.name) AS director
+        RETURN
+          m.id AS movie_id,
+          m.title AS title,
+          director AS director,
+          COALESCE(m.genres, []) AS genres,
+          review_count,
+          rating
+        ORDER BY rating DESC
+    """
+
     # 类别相关
     MOVIES_BY_GENRE = """
-        MATCH (m:Movie)-[:HAS_GENRE]->(g:Genre)
-        WHERE g.name = $genre
+        MATCH (m:Movie)
+        WHERE $genre IN m.genres
         RETURN m
     """
 
     # 多条件组合查询
-    MOVIES_BY_MULTI_CONDITION = """
-        MATCH (m:Movie)-[:DIRECTED_BY]->(d:Director)-[:HAS_GENRE]->(g:Genre)
-        WHERE d.name = $director AND g.name = $genre AND m.release_year = $year AND m.rating >= $min_score
-        RETURN m
+    MOVIES_BY_MULTI_CONDITION_TEMPLATE = """
+        MATCH (m:Movie)
+        OPTIONAL MATCH (d:Director)-[:DIRECTED]->(m)
+        OPTIONAL MATCH (a:Actor)-[:ACTED_IN]->(m)
+        {where_clause}
+        WITH DISTINCT m
+        OPTIONAL MATCH (u:User)-[rt:RATED]->(m)
+        WITH m, COUNT(rt) AS review_count, COALESCE(AVG(rt.score), 0) AS rating
+        {having_clause}
+        OPTIONAL MATCH (d2:Director)-[:DIRECTED]->(m)
+        WITH m, review_count, rating, COLLECT(DISTINCT d2.name) AS director
+        RETURN
+          m.id AS movie_id,
+          m.title AS title,
+          director AS director,
+          COALESCE(m.genres, []) AS genres,
+          review_count,
+          rating
+        ORDER BY rating DESC
     """
 
     # ===========================
     # 三、用户评价相关
     # ===========================
     HIGH_RATED_MOVIES = """
-        MATCH (m:Movie)<-[:REVIEWS]-(r:Review)
-        WHERE r.score >= $min_score
-        WITH m, COUNT(r) AS review_count, AVG(r.score) AS avg_score
-        WHERE review_count >= $min_reviews
-        RETURN m, avg_score, review_count
-        ORDER BY avg_score DESC
+        MATCH (m:Movie)
+        OPTIONAL MATCH (u:User)-[rt:RATED]->(m)
+        WITH m, COUNT(rt) AS review_count, COALESCE(AVG(rt.score), 0) AS rating
+        WHERE rating >= $min_score AND review_count >= $min_reviews
+        OPTIONAL MATCH (d:Director)-[:DIRECTED]->(m)
+        WITH m, review_count, rating, COLLECT(DISTINCT d.name) AS director
+        RETURN
+          m.id AS movie_id,
+          m.title AS title,
+          director AS director,
+          COALESCE(m.genres, []) AS genres,
+          review_count,
+          rating
+        ORDER BY rating DESC
     """
 
     REVIEWS_BY_KEYWORD = """
-        MATCH (r:Review)-[:REVIEWS]->(m:Movie)
-        WHERE r.comment CONTAINS $keyword
-        RETURN r, m
+        MATCH (u:User)-[rt:RATED]->(m:Movie)
+        WHERE rt.review_text CONTAINS $keyword
+        RETURN rt, m
     """
 
     # ===========================

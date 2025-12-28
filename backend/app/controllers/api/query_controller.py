@@ -1,321 +1,379 @@
 """
 查询API控制器
+
+说明：
+- 统一返回结构：results 为 AggregatedQueryResult
+  其中 QueryResult / AggregatedQueryResult 定义在 app.models.base.base_model
+- Controller 只负责：参数解析/校验 -> 调用 QueryAggregator.execute_on_all -> jsonify 返回
+
+额外：
+- /reviews-by-movie：按前端 fetchReviews() 预期返回 { total, data }
 """
+
 from flask import Blueprint, request, jsonify
-from app.services.query_service import QueryService
-from app.services.performance_service import PerformanceService
-from app.services.visualization_service import VisualizationService
-from app.services.governance_service import GovernanceService
+
+from app.models.base.base_model import AggregatedQueryResult
+from app.services.query.query_aggregator import QueryAggregator
+from app.models.opengauss.queries import OpenGaussQueries
 
 query_bp = Blueprint('query', __name__)
 
 # 初始化服务
-query_service = QueryService()
-performance_service = PerformanceService()
-visualization_service = VisualizationService()
-governance_service = GovernanceService()
+query_service = QueryAggregator()
+
+
+def _get_str(name: str) -> str | None:
+    v = request.args.get(name)
+    if v is None:
+        return None
+    v = v.strip()
+    return v or None
+
+
+def _get_int(name: str) -> int | None:
+    v = _get_str(name)
+    if v is None:
+        return None
+    return int(v)
+
+
+def _get_float(name: str) -> float | None:
+    v = _get_str(name)
+    if v is None:
+        return None
+    return float(v)
+
+
+def _require_at_least_one(params: dict) -> None:
+    if not any(v is not None for v in params.values()):
+        raise ValueError("至少需要提供一个查询参数")
+
 
 @query_bp.route('/health', methods=['GET'])
 def health_check():
     """健康检查接口"""
     return jsonify({
         'status': 'healthy',
-        'service': 'Movie Data Warehouse API',
-        'version': '1.0.0'
+        'service': 'Movie Data Warehouse API'
     })
 
-@query_bp.route('/movies-by-year', methods=['GET'])
-def get_movies_by_year():
-    """按年份查询电影统计"""
+
+# 1) 按时间查询电影：year/quarter/month/week 可选但至少一个
+@query_bp.route('/movies-by-time', methods=['GET'])
+def movies_by_time():
     try:
-        year = int(request.args.get('year', 2020))
+        year = _get_int('year')
+        quarter = _get_int('quarter')
+        month = _get_int('month')
+        week = _get_int('week')
 
-        # 并发查询三种数据库
-        results = performance_service.compare_performance({
-            'opengauss': lambda: query_service.query_opengauss_movies_by_year(year),
-            'hive': lambda: query_service.query_hive_movies_by_year(year),
-            'neo4j': lambda: query_service.query_neo4j_movies_by_year(year)
-        })
+        params = {
+            'year': year,
+            'quarter': quarter,
+            'month': month,
+            'week': week
+        }
+        _require_at_least_one(params)
 
-        # 生成可视化数据
-        chart_data = visualization_service.format_performance_chart_data(results)
+        results: AggregatedQueryResult = query_service.execute_on_all(
+            'get_movies_by_time_dynamic',
+            filters=params
+        )
 
         return jsonify({
             'success': True,
-            'query_type': 'movies_by_year',
-            'parameters': {'year': year},
-            'results': results,
-            'charts': {
-                'performance_comparison': chart_data,
-                'time_series': visualization_service.format_time_series_chart(
-                    results['results'].get('opengauss', {}).get('result', [])
-                )
-            }
+            'query_type': 'movies_by_time',
+            'parameters': params,
+            'results': results
         })
 
     except Exception as e:
         return jsonify({
             'success': False,
-            'error': str(e),
-            'query_type': 'movies_by_year'
-        }), 400
-
-@query_bp.route('/movies-by-director', methods=['GET'])
-def get_movies_by_director():
-    """按导演查询电影"""
-    try:
-        director = request.args.get('director', '').strip()
-        if not director:
-            return jsonify({'success': False, 'error': 'Director parameter is required'}), 400
-
-        results = performance_service.compare_performance({
-            'opengauss': lambda: query_service.query_opengauss_movies_by_director(director),
-            'hive': lambda: query_service.query_hive_movies_by_director(director),
-            'neo4j': lambda: query_service.query_neo4j_movies_by_director(director)
-        })
-
-        chart_data = visualization_service.format_performance_chart_data(results)
-
-        return jsonify({
-            'success': True,
-            'query_type': 'movies_by_director',
-            'parameters': {'director': director},
-            'results': results,
-            'charts': {'performance_comparison': chart_data}
-        })
-
-    except Exception as e:
-        return jsonify({
-            'success': False,
-            'error': str(e),
-            'query_type': 'movies_by_director'
-        }), 400
-
-@query_bp.route('/movies-by-actor', methods=['GET'])
-def get_movies_by_actor():
-    """按演员查询电影"""
-    try:
-        actor = request.args.get('actor', '').strip()
-        role_type = request.args.get('role_type', 'starring')  # starring or participated
-
-        if not actor:
-            return jsonify({'success': False, 'error': 'Actor parameter is required'}), 400
-
-        if role_type == 'starring':
-            query_funcs = {
-                'opengauss': lambda: query_service.query_opengauss_movies_by_actor_starring(actor),
-                'hive': lambda: query_service.query_hive_movies_by_actor_starring(actor),
-                'neo4j': lambda: query_service.query_neo4j_movies_by_actor_starring(actor)
-            }
-        else:
-            query_funcs = {
-                'opengauss': lambda: query_service.query_opengauss_movies_by_actor_participated(actor),
-                'hive': lambda: query_service.query_hive_movies_by_actor_participated(actor),
-                'neo4j': lambda: query_service.query_neo4j_movies_by_actor_participated(actor)
-            }
-
-        results = performance_service.compare_performance(query_funcs)
-        chart_data = visualization_service.format_performance_chart_data(results)
-
-        return jsonify({
-            'success': True,
-            'query_type': f'movies_by_actor_{role_type}',
-            'parameters': {'actor': actor, 'role_type': role_type},
-            'results': results,
-            'charts': {'performance_comparison': chart_data}
-        })
-
-    except Exception as e:
-        return jsonify({
-            'success': False,
+            'query_type': 'movies_by_time',
             'error': str(e)
         }), 400
 
-@query_bp.route('/movies-by-genre', methods=['GET'])
-def get_movies_by_genre():
-    """按电影类型查询统计"""
+
+# 2) 按人员查询电影：director/actor/starring 可选但至少一个
+@query_bp.route('/movies-by-person', methods=['GET'])
+def movies_by_person():
     try:
-        genre = request.args.get('genre', '').strip()
-        if not genre:
-            return jsonify({'success': False, 'error': 'Genre parameter is required'}), 400
+        director = _get_str('director')
+        actor = _get_str('actor')
+        starring = _get_str('starring')
 
-        results = performance_service.compare_performance({
-            'opengauss': lambda: query_service.query_opengauss_movies_by_genre(genre),
-            'hive': lambda: query_service.query_hive_movies_by_genre(genre),
-            'neo4j': lambda: query_service.query_neo4j_movies_by_genre(genre)
-        })
+        params = {
+            'director': director,
+            'actor': actor,
+            'starring': starring
+        }
+        _require_at_least_one(params)
 
-        chart_data = visualization_service.format_performance_chart_data(results)
+        results: AggregatedQueryResult = query_service.execute_on_all(
+            'get_movies_by_person',
+            director=director,
+            actor=actor,
+            starring=starring
+        )
 
         return jsonify({
             'success': True,
-            'query_type': 'movies_by_genre',
-            'parameters': {'genre': genre},
-            'results': results,
-            'charts': {'performance_comparison': chart_data}
+            'query_type': 'movies_by_person',
+            'parameters': params,
+            'results': results
         })
 
     except Exception as e:
         return jsonify({
             'success': False,
+            'query_type': 'movies_by_person',
             'error': str(e)
         }), 400
 
+
+# 3) 按属性查询电影：title/genre 可选但至少一个
+@query_bp.route('/movies-by-property', methods=['GET'])
+def movies_by_property():
+    try:
+        title = _get_str('title')
+        genre = _get_str('genre')
+
+        params = {
+            'title': title,
+            'genre': genre
+        }
+        _require_at_least_one(params)
+
+        results: AggregatedQueryResult = query_service.execute_on_all(
+            'get_movies_by_property',
+            title=title,
+            genre=genre
+        )
+
+        return jsonify({
+            'success': True,
+            'query_type': 'movies_by_property',
+            'parameters': params,
+            'results': results
+        })
+
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'query_type': 'movies_by_property',
+            'error': str(e)
+        }), 400
+
+
+# 4) 按高评分查询电影：min_score/min_reviews 可选但至少一个
 @query_bp.route('/high-rated-movies', methods=['GET'])
-def get_high_rated_movies():
-    """查询高评分电影"""
+def high_rated_movies():
     try:
-        min_score = float(request.args.get('min_score', 4.0))
-        min_reviews = int(request.args.get('min_reviews', 10))
+        min_score = _get_float('min_score')
+        min_reviews = _get_int('min_reviews')
 
-        results = performance_service.compare_performance({
-            'opengauss': lambda: query_service.query_opengauss_high_rated_movies(min_score, min_reviews),
-            'hive': lambda: query_service.query_hive_high_rated_movies(min_score, min_reviews),
-            'neo4j': lambda: query_service.query_neo4j_high_rated_movies(min_score, min_reviews)
-        })
+        params = {
+            'min_score': min_score,
+            'min_reviews': min_reviews
+        }
+        _require_at_least_one(params)
 
-        chart_data = visualization_service.format_performance_chart_data(results)
-        rating_chart = visualization_service.format_rating_distribution_chart(
-            results['results'].get('opengauss', {}).get('result', [])
+        results: AggregatedQueryResult = query_service.execute_on_all(
+            'get_high_rated_movies_dynamic',
+            min_score=min_score,
+            min_reviews=min_reviews
         )
 
         return jsonify({
             'success': True,
             'query_type': 'high_rated_movies',
-            'parameters': {'min_score': min_score, 'min_reviews': min_reviews},
-            'results': results,
-            'charts': {
-                'performance_comparison': chart_data,
-                'rating_distribution': rating_chart
-            }
+            'parameters': params,
+            'results': results
         })
 
     except Exception as e:
         return jsonify({
             'success': False,
+            'query_type': 'high_rated_movies',
             'error': str(e)
         }), 400
 
+
+# 5) 演员-演员合作关系：仅 min_collaborations 必填（全局合作对）
 @query_bp.route('/actor-collaborations', methods=['GET'])
-def get_actor_collaborations():
-    """查询演员合作关系"""
+def actor_actor_collaborations():
     try:
-        min_collaborations = int(request.args.get('min_collaborations', 2))
-        limit = int(request.args.get('limit', 20))
+        min_collaborations = _get_int('min_collaborations')
+        if min_collaborations is None:
+            raise ValueError('min_collaborations 参数必填')
 
-        results = performance_service.compare_performance({
-            'opengauss': lambda: query_service.query_opengauss_actor_collaborations(min_collaborations, limit),
-            'hive': lambda: query_service.query_hive_actor_collaborations(min_collaborations, limit),
-            'neo4j': lambda: query_service.query_neo4j_actor_collaborations(min_collaborations, limit)
-        })
+        limit = _get_int('limit')
+        if limit is None:
+            limit = 20
 
-        chart_data = visualization_service.format_performance_chart_data(results)
-        network_data = visualization_service.format_collaboration_network_data(
-            results['results'].get('neo4j', {}).get('result', [])
+        params = {
+            'min_collaborations': min_collaborations,
+            'limit': limit
+        }
+
+        results: AggregatedQueryResult = query_service.execute_on_all(
+            'get_actor_actor_collaborations',
+            min_collaborations=min_collaborations,
+            limit=limit
         )
 
         return jsonify({
             'success': True,
-            'query_type': 'actor_collaborations',
-            'parameters': {'min_collaborations': min_collaborations, 'limit': limit},
-            'results': results,
-            'charts': {
-                'performance_comparison': chart_data,
-                'collaboration_network': network_data
-            }
+            'query_type': 'actor_actor_collaborations',
+            'parameters': params,
+            'results': results
         })
 
     except Exception as e:
         return jsonify({
             'success': False,
+            'query_type': 'actor_actor_collaborations',
             'error': str(e)
         }), 400
 
+
+# 6) 导演-演员合作关系：仅 director 必填（按你的最终需求，不传 min_collaborations）
 @query_bp.route('/director-actor-collaborations', methods=['GET'])
-def get_director_actor_collaborations():
-    """查询导演演员合作关系"""
+def director_actor_collaborations():
     try:
-        director = request.args.get('director', '').strip()
-        min_collaborations = int(request.args.get('min_collaborations', 1))
-        limit = int(request.args.get('limit', 10))
-
+        director = _get_str('director')
         if not director:
-            return jsonify({'success': False, 'error': 'Director parameter is required'}), 400
+            raise ValueError('director 参数必填')
 
-        results = performance_service.compare_performance({
-            'opengauss': lambda: query_service.query_opengauss_director_actor_collaborations(director, min_collaborations, limit),
-            'hive': lambda: query_service.query_hive_director_actor_collaborations(director, min_collaborations, limit),
-            'neo4j': lambda: query_service.query_neo4j_director_actor_collaborations(director, min_collaborations, limit)
-        })
+        limit = _get_int('limit')
+        if limit is None:
+            limit = 20
 
-        chart_data = visualization_service.format_performance_chart_data(results)
+        params = {
+            'director': director,
+            'limit': limit
+        }
+
+        results: AggregatedQueryResult = query_service.execute_on_all(
+            'get_director_actor_collaborations_by_director',
+            director=director,
+            limit=limit
+        )
 
         return jsonify({
             'success': True,
             'query_type': 'director_actor_collaborations',
-            'parameters': {'director': director, 'min_collaborations': min_collaborations, 'limit': limit},
-            'results': results,
-            'charts': {'performance_comparison': chart_data}
+            'parameters': params,
+            'results': results
         })
 
     except Exception as e:
         return jsonify({
             'success': False,
+            'query_type': 'director_actor_collaborations',
             'error': str(e)
         }), 400
 
-@query_bp.route('/popular-actor-combinations', methods=['GET'])
-def get_popular_actor_combinations():
-    """查询热门演员组合（仅Neo4j）"""
+
+# 7) 组合查询电影：year/director/starring/actor/title 至少一个
+@query_bp.route('/movies-by-combined-query', methods=['GET'])
+def movies_by_combined_query():
     try:
-        genre = request.args.get('genre', 'Action').strip()
+        year = _get_int('year')
+        director = _get_str('director')
+        starring = _get_str('starring')
+        actor = _get_str('actor')
+        title = _get_str('title')
 
-        # 只有Neo4j支持这个查询
-        result = query_service.query_neo4j_popular_actor_combinations(genre)
-
-        return jsonify({
-            'success': True,
-            'query_type': 'popular_actor_combinations',
-            'parameters': {'genre': genre},
-            'database': 'neo4j',
-            'result': result
-        })
-
-    except Exception as e:
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 400
-
-@query_bp.route('/performance-report', methods=['GET'])
-def get_performance_report():
-    """获取性能报告"""
-    try:
-        # 这里可以实现获取历史性能数据的逻辑
-        # 目前返回一个示例报告
-        sample_results = {
-            'results': {
-                'opengauss': {'execution_time': 0.5, 'success': True},
-                'hive': {'execution_time': 1.2, 'success': True},
-                'neo4j': {'execution_time': 0.3, 'success': True}
-            },
-            'performance_stats': {
-                'fastest_database': 'neo4j',
-                'performance_ratio': 4.0,
-                'average_execution_time': 0.67
-            }
+        params = {
+            'year': year,
+            'director': director,
+            'starring': starring,
+            'actor': actor,
+            'title': title
         }
+        _require_at_least_one(params)
 
-        report = performance_service.generate_performance_report(sample_results)
+        results: AggregatedQueryResult = query_service.execute_on_all(
+            'get_movies_by_multi_condition',
+            year=year,
+            director=director,
+            starring=starring,
+            actor=actor,
+            title=title
+        )
 
         return jsonify({
             'success': True,
-            'report': report
+            'query_type': 'movies_by_combined_query',
+            'parameters': params,
+            'results': results
         })
 
     except Exception as e:
         return jsonify({
             'success': False,
+            'query_type': 'movies_by_combined_query',
             'error': str(e)
         }), 400
 
+
+# Reviews: 前端 fetchReviews() 期望返回 { total, data }
+@query_bp.route('/reviews-by-movie', methods=['GET'])
+def reviews_by_movie():
+    """获取指定电影的评论（分页）
+
+    兼容前端 QueryService.fetchReviews：
+    - 入参：movie_id 或 asin 或 title（至少一个）
+    - 返回：{ total: number, data: Review[] }
+
+    注意：不同数据库 review 表结构可能不一致。
+    这里优先以 OpenGauss 的 fact_reviews 为准；如 OpenGauss 失败，返回空。
+    """
+    try:
+        movie_id = _get_str('movie_id')
+        asin = _get_str('asin')
+        title = _get_str('title')
+
+        page = _get_int('page') or 1
+        page_size = _get_int('pageSize') or 20
+        if page < 1:
+            page = 1
+        if page_size < 1:
+            page_size = 20
+
+        if not any([movie_id, asin, title]):
+            raise ValueError('movie_id/asin/title 至少提供一个')
+
+        # 方案A：仅使用 OpenGauss 的 fact_reviews 返回评论明细（不参与三库性能对比）
+        # 说明：movie_id/asin 都视为 fact_reviews.movie_id
+        target_movie_id = movie_id or asin
+
+        if not target_movie_id:
+            raise ValueError('方案A要求提供 movie_id 或 asin')
+
+        offset = (page - 1) * page_size
+
+        with query_service.opengauss_service as s:
+            # 1) total
+            total_res = s.model.execute_query(OpenGaussQueries.REVIEWS_COUNT_BY_MOVIE_ID, (target_movie_id,))
+            total = 0
+            if total_res.get('success') and total_res.get('data'):
+                total = int(total_res['data'][0].get('total', 0))
+
+            # 2) page data
+            data_res = s.model.execute_query(OpenGaussQueries.REVIEWS_BY_MOVIE_ID, (target_movie_id, page_size, offset))
+            rows = data_res.get('data') if data_res.get('success') else []
+
+        return jsonify({
+            'total': total,
+            'data': rows or []
+        })
+
+    except Exception as e:
+        return jsonify({
+            'total': 0,
+            'data': [],
+            'error': str(e)
+        }), 400

@@ -13,9 +13,10 @@ import type { QueryParams } from '../types/query';
 export interface BackendDatabaseResult {
   success?: boolean;
   execution_time?: number;
+  // 后端当前返回字段名为 data（QueryResult.data），同时兼容旧字段 result
+  data?: QueryResultData;
   result?: QueryResultData;
-  record_count?: number;
-  error?: string;
+  error?: string | null;
 }
 
 export interface BackendQueryResponse {
@@ -73,13 +74,17 @@ export class BackendAdapter {
             return; // 跳过未知数据库
         }
 
+        const rows = Array.isArray(dbResult.data)
+          ? dbResult.data
+          : (Array.isArray(dbResult.result) ? dbResult.result : []);
+
         adaptedResults[databaseType] = {
           database: databaseType,
           success: dbResult.success !== false, // 后端可能没有success字段，默认为true
           execution_time: dbResult.execution_time || 0,
-          result: Array.isArray(dbResult.result) ? dbResult.result : [],
-          record_count: dbResult.record_count || (Array.isArray(dbResult.result) ? dbResult.result.length : 0),
-          error: dbResult.error
+          result: rows,
+          record_count: rows.length,
+          error: dbResult.error ?? undefined
         };
       });
     }

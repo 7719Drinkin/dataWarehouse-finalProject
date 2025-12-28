@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import type { Review } from '../../types/data';
 import type { DataSource } from '../../types/api';
-import { QueryService } from '../../api/queryService';
+import { QueryService } from '../../api/queryService'; // 从 queryService.ts 导入
 import ReviewItem from './ReviewItem';
 import LoadingIndicator from '../common/LoadingIndicator';
 import ErrorMessage from '../common/ErrorMessage';
@@ -22,6 +22,7 @@ const ReviewList: React.FC<ReviewListProps> = ({ movieId, dataSource }) => {
     setError(null);
 
     try {
+      // 将真实 API 调用替换为模拟数据调用
       const response = await QueryService.fetchReviews(
         { filters: { movie_id: movieId } },
         { page, pageSize: pagination.pageSize },
@@ -72,7 +73,10 @@ const ReviewList: React.FC<ReviewListProps> = ({ movieId, dataSource }) => {
   return (
     <div style={{ backgroundColor: 'white', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
       {reviews.map(review => (
-        <ReviewItem key={review.asin} review={review} />
+        <ReviewItem
+          key={(review as any).review_id ?? `${review.asin}-${review.user_id}-${review.review_time}`}
+          review={review}
+        />
       ))}
 
       {pagination.hasMore && (
@@ -100,4 +104,3 @@ const ReviewList: React.FC<ReviewListProps> = ({ movieId, dataSource }) => {
 };
 
 export default ReviewList;
-

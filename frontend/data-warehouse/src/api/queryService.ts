@@ -1,6 +1,7 @@
 import { httpClient } from './httpClient';
 import { BackendAdapter } from './adapters';
-import { API_CONFIG } from './config';
+import { resolveQueryEndpoint, type DatabaseSelection, COMMON_ENDPOINTS } from './queryEndpoints';
+import { QueryResponseAdapter, type BackendSingleQueryResponse } from './queryAdapter';
 import type { BackendHealthResponse, BackendQueryResponse } from './adapters';
 import type {
   ApiResponse,
@@ -11,44 +12,14 @@ import type { QueryParams } from '../types/query';
 import type { Review } from '../types/data';
 import type { Pagination, QueryCondition, DataSource } from '../types/api';
 
-// 参数映射：前端参数名 -> 后端参数名
-const PARAM_MAPPING: Record<string, string> = {
-  movie_title: 'title',
+import { mapParamsToBackend } from './paramMapping';
 
-  min_score: 'min_score',
-  min_reviews: 'min_reviews',
-  min_collaborations: 'min_collaborations'
-};
-
-// 查询类型到端点的映射
-const QUERY_ENDPOINT_MAP: Record<QueryType, string> = {
-  [QueryType.MOVIES_BY_TIME]: API_CONFIG.ENDPOINTS.MOVIES_BY_TIME, // 使用相同的端点，根据参数区分
-  [QueryType.MOVIES_BY_PERSON]: API_CONFIG.ENDPOINTS.MOVIES_BY_PERSON, // Generic endpoint
-  [QueryType.MOVIES_BY_PROPERTY]: API_CONFIG.ENDPOINTS.MOVIES_BY_PROPERTY, // Generic endpoint
-  [QueryType.HIGH_RATED_MOVIES]: API_CONFIG.ENDPOINTS.HIGH_RATED_MOVIES,
-  [QueryType.ACTOR_COLLABORATIONS]: API_CONFIG.ENDPOINTS.ACTOR_COLLABORATIONS,
-  [QueryType.DIRECTOR_ACTOR_COLLABORATIONS]: API_CONFIG.ENDPOINTS.DIRECTOR_ACTOR_COLLABORATIONS,
-  [QueryType.COMBINED_QUERY]: API_CONFIG.ENDPOINTS.MOVIES_BY_COMBINED_QUERY // 需要后端支持
-};
-
-// 参数映射函数
-function mapParamsToBackend(queryType: QueryType, params: QueryParams): Record<string, string | number> {
-  const mappedParams: Record<string, string | number> = {};
-
-  Object.entries(params).forEach(([key, value]) => {
-    if (value === undefined || value === null) return;
-
-    const backendKey = PARAM_MAPPING[key] || key;
-    mappedParams[backendKey] = value;
-  });
-
-  return mappedParams;
-}
+// 端点解析已迁移到 api/queryEndpoints.ts（支持单库/聚合自动切换）
 
 export class QueryService {
   // 健康检查
   static async healthCheck(): Promise<ApiResponse<{status: string; service: string; version: string}>> {
-    const response = await httpClient.get<BackendHealthResponse>(API_CONFIG.ENDPOINTS.HEALTH);
+    const response = await httpClient.get<BackendHealthResponse>(COMMON_ENDPOINTS.HEALTH);
 
     if (!response.success) {
       return {
@@ -63,29 +34,53 @@ export class QueryService {
   }
 
   // 通用查询执行方法
+  /**
+   * 执行查询
+   *
+   * database 参数约定：
+   * - 'aggregated'：走聚合查询接口 /api/query/...
+   * - 'hive' | 'opengauss' | 'neo4j'：走单库查询接口 /api/query/{db}/...
+   */
   static async executeQuery(
     queryType: QueryType,
-    params: QueryParams
+    params: QueryParams,
+    database: DatabaseSelection = 'aggregated'
   ): Promise<ApiResponse<QueryResult>> {
     try {
-      const endpoint = QUERY_ENDPOINT_MAP[queryType];
-      if (!endpoint) {
-        throw new Error(`Unsupported query type: ${queryType}`);
-      }
+      const endpoint = resolveQueryEndpoint(queryType, database);
 
       const backendParams = mapParamsToBackend(queryType, params);
+
+      // 聚合接口与单库接口的返回结构不同：
+      // - 聚合：BackendQueryResponse（包含 results）
+      // - 单库：BackendSingleQueryResponse（包含 database + result）
+      if (database === 'aggregated') {
       const response = await httpClient.get<BackendQueryResponse>(endpoint, backendParams);
 
       if (!response.success) {
         return {
           success: false,
-          data: {} as QueryResult, // 提供空的QueryResult作为默认值
+            data: {} as QueryResult,
+            message: response.error || 'Query execution failed',
+            timestamp: new Date().toISOString(),
+          };
+        }
+
+        return BackendAdapter.adaptQueryResponse(response.data ?? { success: false });
+      }
+
+      const response = await httpClient.get<BackendSingleQueryResponse>(endpoint, backendParams);
+
+      if (!response.success) {
+        return {
+          success: false,
+          data: {} as QueryResult,
           message: response.error || 'Query execution failed',
-          timestamp: new Date().toISOString()
+          timestamp: new Date().toISOString(),
         };
       }
 
-      return BackendAdapter.adaptQueryResponse(response.data ?? {success: false});
+      return QueryResponseAdapter.adaptSingleToQueryResult(response.data ?? { success: false });
     } catch (error) {
       return {
         success: false,
@@ -125,7 +120,7 @@ export class QueryService {
 
       // 假设后端直接返回 { total: number, data: Review[] } 格式
       const response = await httpClient.get<{ total: number; data: Review[] }>(
-        API_CONFIG.ENDPOINTS.REVIEWS_BY_MOVIE,
+        COMMON_ENDPOINTS.REVIEWS_BY_MOVIE,
         params
       );
 

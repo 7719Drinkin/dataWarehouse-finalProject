@@ -2,13 +2,45 @@
 基础模型类
 """
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Tuple, Union, Optional, Type
+from typing import TypedDict, Any, Dict, List, Tuple, Union, Optional, Type
 from types import TracebackType
 
 from config.database import DatabaseConfig
 
 # 查询参数类型
 QueryParams = Union[Tuple[Any, ...], Dict[str, Any], None]
+
+class QueryResult(TypedDict):
+    """
+    查询结果类型
+
+    提供查询结果的统一类型，方便后续的类型检查和转换。
+
+    属性：
+        data: 查询结果列表
+        execution_time: 执行时间
+        success: 是否成功
+        error: 错误信息
+    """
+    data: List[Dict[str, Any]]
+    execution_time: float
+    success: bool
+    error: str | None
+
+class AggregatedQueryResult(TypedDict):
+    """聚合查询结果类型
+
+    QueryAggregator 并发调用多个数据库后返回的结构。
+
+    属性：
+        opengauss: OpenGauss 的 QueryResult
+        hive: Hive 的 QueryResult
+        neo4j: Neo4j 的 QueryResult
+    """
+    opengauss: QueryResult
+    hive: QueryResult
+    neo4j: QueryResult
+
 
 class BaseModel(ABC):
     """数据库模型基类
@@ -56,7 +88,7 @@ class BaseModel(ABC):
         pass
 
     @abstractmethod
-    def execute_query(self, query: str, params: QueryParams = None) -> List[Dict[str, Any]]:
+    def execute_query(self, query: str, params: QueryParams = None) -> QueryResult:
         """执行查询操作
         
         执行 SELECT 等查询语句，返回结果集。
@@ -169,4 +201,6 @@ class BaseModel(ABC):
             return len(result) > 0
         except Exception:
             return False
+
+
 

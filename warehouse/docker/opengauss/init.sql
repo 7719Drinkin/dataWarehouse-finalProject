@@ -14,7 +14,7 @@ CREATE TABLE IF NOT EXISTS dim_movies (
   release_month INT,
   release_week INT,
   genres TEXT[],
-  director TEXT,
+  director TEXT[],
   versions TEXT[]
 );
 
