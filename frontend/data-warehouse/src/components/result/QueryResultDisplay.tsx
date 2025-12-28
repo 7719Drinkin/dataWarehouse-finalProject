@@ -4,6 +4,7 @@ import type { Movie } from '../../types/data';
 import MovieCard from './MovieCard';
 import MovieDetails from './MovieDetails';
 import ReviewList from './ReviewList';
+import CollaborationList from './CollaborationList';
 
 interface QueryResultDisplayProps {
   results: DatabaseResults;
@@ -41,10 +42,8 @@ function toStringArray(v: unknown): string[] {
 
 function extractMovies(db: DatabaseResult | null): Movie[] {
   if (!db || !db.success) return [];
-  // 后端（聚合结果）使用 data 字段
   const rows = (db as any).data ?? (db as any).result ?? [];
 
-  // 后端返回 movie_id，前端 Movie 类型使用 id，这里做映射
   return (rows ?? []).map((item: any) => ({
     actors: item.actors || [],
     release_date: item.release_date || '',
@@ -55,10 +54,17 @@ function extractMovies(db: DatabaseResult | null): Movie[] {
   }));
 }
 
+function extractRows(db: DatabaseResult | null): any[] {
+  if (!db || !db.success) return [];
+  return (db as any).data ?? (db as any).result ?? [];
+}
+
 const QueryResultDisplay: React.FC<QueryResultDisplayProps> = ({ results, dataSource, queryType }) => {
   const [selectedMovie, setSelectedMovie] = useState<Movie | null>(null);
 
-  // 规则：movies_by_person 强制展示 neo4j；其他查询仍使用 opengauss（保持现状，避免影响你当前调试）
+  // 选择一个用于“主要展示”的数据库结果：
+  // - movies_by_person 强制展示 neo4j（你之前的需求）
+  // - 其他查询默认展示 opengauss（保持现状，便于调试）
   const chosenDb = useMemo(() => {
     if (queryType === 'movies_by_person') {
       const neo4jResult = (results as any).neo4j || (results as any).Neo4j;
@@ -72,9 +78,21 @@ const QueryResultDisplay: React.FC<QueryResultDisplayProps> = ({ results, dataSo
     return null;
   }, [results, queryType]);
 
+  // --------- 非电影列表查询：合作关系 ---------
+  if (queryType === 'actor_collaborations' || queryType === 'director_actor_collaborations') {
+    const rows = extractRows(chosenDb);
+
+    return (
+      <CollaborationList
+        title={queryType === 'actor_collaborations' ? '演员-演员合作关系' : '导演-演员合作关系'}
+        rows={rows}
+      />
+    );
+  }
+
+  // --------- 电影列表查询 ---------
   const moviesToShow = useMemo(() => extractMovies(chosenDb), [chosenDb]);
 
-  // 如果当前选择的电影不在新结果集里，清空选择，避免右侧详情显示“脏数据”
   React.useEffect(() => {
     if (selectedMovie && !moviesToShow.some(m => m.id === selectedMovie.id)) {
       setSelectedMovie(null);
@@ -101,7 +119,7 @@ const QueryResultDisplay: React.FC<QueryResultDisplayProps> = ({ results, dataSo
           查询结果 ({moviesToShow.length} 部电影)
           {chosenDb ? (
             <span style={{ marginLeft: '8px', fontSize: '12px', color: '#6b7280' }}>
-              来自：{chosenDb.database}（{chosenDb.execution_time}ms）
+              来自：{(chosenDb as any).database ?? '-'}（{(chosenDb as any).execution_time}ms）
             </span>
           ) : null}
         </h2>

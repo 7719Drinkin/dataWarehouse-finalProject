@@ -68,17 +68,35 @@ class HiveQueries:
 
     # 按时间动态查询电影
     MOVIES_BY_TIME_DYNAMIC_TEMPLATE = """
-        SELECT
+        WITH filtered_movies AS (
+          SELECT
             m.movie_id,
             m.title,
             m.director,
-            m.genres,
+            m.genres
+          FROM movie_dw.movies_meta_dw m
+          {where_clause}
+        ),
+        reviews_agg AS (
+          SELECT
+            r.product_id AS movie_id,
             COUNT(1) AS review_count,
-            NVL(AVG(r.score), 0) AS rating
-        FROM movie_dw.movies_meta_dw m
-        LEFT JOIN movie_dw.reviews_clean_amazon r ON m.movie_id = r.product_id
-        {where_clause}
-        GROUP BY m.movie_id, m.title, m.director, m.genres
+            AVG(r.score) AS avg_score
+          FROM movie_dw.reviews_clean_amazon r
+          JOIN filtered_movies fm
+            ON fm.movie_id = r.product_id
+          GROUP BY r.product_id
+        )
+        SELECT
+          fm.movie_id,
+          fm.title,
+          fm.director,
+          fm.genres,
+          NVL(ra.review_count, 0) AS review_count,
+          NVL(ra.avg_score, 0) AS rating
+        FROM filtered_movies fm
+        LEFT JOIN reviews_agg ra
+          ON fm.movie_id = ra.movie_id
         ORDER BY rating DESC
     """
 
@@ -205,14 +223,28 @@ class HiveQueries:
     # 四、演员-导演关系查询
     # =======================
     ACTOR_COLLABORATIONS = """
+        WITH exploded AS (
+          SELECT
+            m.movie_id,
+            pe.pos AS pos,
+            pe.actor AS actor
+          FROM movie_dw.movies_meta_dw m
+          LATERAL VIEW posexplode(m.actors) pe AS pos, actor
+        ),
+        pairs AS (
+          SELECT
+            e1.actor AS a1,
+            e2.actor AS a2
+          FROM exploded e1
+          JOIN exploded e2
+            ON e1.movie_id = e2.movie_id
+           AND e1.pos < e2.pos
+        )
         SELECT
-            a1,
-            a2,
-            COUNT(1) AS collaborations
-        FROM movie_dw.movies_meta_dw m
-        LATERAL VIEW explode(m.actors) lv1 AS a1
-        LATERAL VIEW explode(m.actors) lv2 AS a2
-        WHERE a1 < a2
+          a1,
+          a2,
+          COUNT(1) AS collaborations
+        FROM pairs
         GROUP BY a1, a2
         HAVING COUNT(1) >= {min_collaborations}
         ORDER BY collaborations DESC
@@ -230,3 +262,4 @@ class HiveQueries:
         ORDER BY collaborations DESC
         LIMIT {limit}
     """
+
